@@ -103,8 +103,10 @@ ms-support-question-generator/
 - Paste any customer scenario description or ask any technical question
 - Multi-turn conversational chat — context preserved across messages
 - **Streaming responses** — tokens render as they arrive, no waiting for full response
-- Powered by **local Ollama** (`llama3.1:8b`) — no API key or internet connection required
-- Requires [Ollama](https://ollama.com) running locally on `http://localhost:11434`
+- Two AI provider options — switch between them with the provider toggle:
+  - ⚡ **Google Gemini 2.5 Flash** — fast, high quality (requires free API key)
+  - 🤗 **HuggingFace Qwen2.5-72B** — powerful open model (requires free API key)
+- API keys entered in-app and stored in `localStorage` — never hardcoded or committed
 - Goes beyond the question bank — root cause analysis, known bugs, KB articles, registry fixes, packet capture interpretation, advanced PowerShell
 - Clear Chat button resets conversation history (`Ctrl+L`)
 
@@ -158,13 +160,19 @@ All of the following survive page refresh:
 
 ## 🤖 AI Assistant Setup
 
-1. Install [Ollama](https://ollama.com/download)
-2. Pull the model:
-   ```bash
-   ollama pull llama3.1:8b
-   ```
-3. Ollama runs automatically in the background on `http://localhost:11434`
-4. Open `index.html` — the AI Assistant section is ready to use
+No installation required. Just get a free API key for your preferred provider:
+
+### Option A — Google Gemini (recommended)
+1. Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2. Create a free API key
+3. Open the app, select **⚡ Gemini 2.5 Flash**, paste the key, and click **💾 Save Key**
+
+### Option B — HuggingFace Qwen2.5-72B
+1. Go to [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Create a new token (Read access is sufficient)
+3. Open the app, select **🤗 HuggingFace**, paste the key, and click **💾 Save Key**
+
+Keys are saved in your browser's `localStorage` and never leave your machine.
 
 ---
 
@@ -239,8 +247,8 @@ Used to **package evidence for escalation**:
 
 - **Add new technologies**: Extend `QUESTION_BANK` and `TECH_CATEGORIES` in `questions.js`
 - **Modify UI theme**: Edit CSS variables in `styles.css` (`:root` block)
-- **Change AI model**: Update `model` in `_invokeAnalysisStream()` in `app.js`
-- **Adjust AI prompt**: Edit `_systemPrompt` inside `_invokeAnalysisStream()` in `app.js` to change tone or focus area
+- **Change AI model**: Update `model` in `_invokeViaGemini()` or `_invokeViaHuggingFace()` in `app.js`
+- **Adjust AI prompt**: Edit `_SYSTEM_PROMPT` in `app.js` to change tone or focus area
 
 ---
 
