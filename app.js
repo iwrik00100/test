@@ -367,16 +367,23 @@ function setAiProvider(provider) {
   document.getElementById('providerGemini').classList.toggle('active', provider === 'gemini');
   document.getElementById('providerHuggingFace').classList.toggle('active', provider === 'huggingface');
   const status = document.getElementById('aiProviderStatus');
-  const keyRow = document.getElementById('hfKeyRow');
+  const geminiKeyRow = document.getElementById('geminiKeyRow');
+  const hfKeyRow = document.getElementById('hfKeyRow');
   if (provider === 'gemini') {
     status.textContent = '⚡ Google Gemini 2.5 Flash';
     status.style.color = 'var(--l1)';
-    if (keyRow) keyRow.style.display = 'none';
+    if (geminiKeyRow) {
+      geminiKeyRow.style.display = 'flex';
+      const saved = LS.get('pcy_gemini_key', '');
+      if (saved) document.getElementById('geminiKeyInput').value = saved;
+    }
+    if (hfKeyRow) hfKeyRow.style.display = 'none';
   } else {
     status.textContent = '🤗 HuggingFace — Qwen2.5-72B';
     status.style.color = 'var(--accent)';
-    if (keyRow) {
-      keyRow.style.display = 'flex';
+    if (geminiKeyRow) geminiKeyRow.style.display = 'none';
+    if (hfKeyRow) {
+      hfKeyRow.style.display = 'flex';
       const saved = LS.get('pcy_hf_key', '');
       if (saved) document.getElementById('hfKeyInput').value = saved;
     }
@@ -449,7 +456,11 @@ async function _invokeAnalysisStream(pre, output) {
 }
 
 async function _invokeViaGemini(pre, output) {
-  const GEMINI_KEY = 'AIzaSyCxHMRyXNCMxAPnMQdDYmTpXpVpDfdmZmE';
+  const GEMINI_KEY = LS.get('pcy_gemini_key', '');
+  if (!GEMINI_KEY) {
+    pre.textContent = '⚠ No Gemini API key set. Enter your key in the field above and save it.';
+    return '';
+  }
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
 
   const contents = [
@@ -533,11 +544,18 @@ async function _invokeViaHuggingFace(pre, output) {
   return text.trim();
 }
 
-function saveApiKey() {
-  const key = document.getElementById('hfKeyInput')?.value.trim();
-  if (!key) { showToast('Enter a key first.'); return; }
-  LS.set('pcy_hf_key', key);
-  showToast('HuggingFace key saved!');
+function saveApiKey(provider) {
+  if (provider === 'gemini') {
+    const key = document.getElementById('geminiKeyInput')?.value.trim();
+    if (!key) { showToast('Enter a key first.'); return; }
+    LS.set('pcy_gemini_key', key);
+    showToast('Gemini key saved!');
+  } else {
+    const key = document.getElementById('hfKeyInput')?.value.trim();
+    if (!key) { showToast('Enter a key first.'); return; }
+    LS.set('pcy_hf_key', key);
+    showToast('HuggingFace key saved!');
+  }
 }
 
 // ─── User bubble helper (assistant bubbles built inline during streaming) ──────
