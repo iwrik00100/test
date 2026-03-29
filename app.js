@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Restore AI provider
   const savedProvider = LS.get('pcy_ai_provider', 'gemini');
-  setAiProvider(savedProvider);
+  setAiProvider(savedProvider === 'pollinations' ? 'huggingface' : savedProvider);
 });
 
 function renderTechSection() {
@@ -365,13 +365,13 @@ function setAiProvider(provider) {
   _aiProvider = provider;
   LS.set('pcy_ai_provider', provider);
   document.getElementById('providerGemini').classList.toggle('active', provider === 'gemini');
-  document.getElementById('providerPollinations').classList.toggle('active', provider === 'pollinations');
+  document.getElementById('providerHuggingFace').classList.toggle('active', provider === 'huggingface');
   const status = document.getElementById('aiProviderStatus');
   if (provider === 'gemini') {
     status.textContent = '⚡ Google Gemini 2.5 Flash';
     status.style.color = 'var(--l1)';
   } else {
-    status.textContent = '🌐 Pollinations AI — free, no key';
+    status.textContent = '🤗 HuggingFace — Qwen2.5-72B';
     status.style.color = 'var(--accent)';
   }
 }
@@ -435,7 +435,7 @@ The engineer already has access to standard scoping, probing, troubleshooting, a
 Answer conversationally and directly. Be specific — reference exact Event IDs, KB articles, registry paths, PowerShell syntax, and command output interpretation where relevant. Do not repeat generic checklist items the engineer already knows.`;
 
 async function _invokeAnalysisStream(pre, output) {
-  if (_aiProvider === 'pollinations') {
+  if (_aiProvider === 'huggingface') {
     return await _invokeViaHuggingFace(pre, output);
   }
   return await _invokeViaGemini(pre, output);
