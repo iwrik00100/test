@@ -3,7 +3,7 @@ name: CD — Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:    # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
 
-  # ── Build ────────────────────────────────────────────────────────
   build:
     name: Build Site
     runs-on: ubuntu-latest
@@ -26,9 +25,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Validate all JSON before deploying
+      - name: Validate JSON files
         run: |
-          python3 -c "
+          python3 << 'EOF'
           import json, os, sys
           errors = []
           for root, dirs, files in os.walk('domains'):
@@ -36,15 +35,16 @@ jobs:
                   if f.endswith('.json'):
                       path = os.path.join(root, f)
                       try:
-                          json.load(open(path))
+                          json.load(open(path, encoding='utf-8'))
                       except json.JSONDecodeError as e:
                           errors.append(f'{path}: {e}')
           if errors:
               print('JSON validation failed:')
               for e in errors: print(e)
               sys.exit(1)
-          print(f'✅ All JSON files valid')
-          "
+          total = sum(1 for r,d,fs in os.walk('domains') for f in fs if f.endswith('.json'))
+          print(f'All {total} JSON files valid')
+          EOF
 
       - name: Build site artifact
         run: |
@@ -52,8 +52,7 @@ jobs:
           cp -r src/     _site/src/
           cp -r domains/ _site/domains/
           cp -r schema/  _site/schema/
-          # Root redirect
-          echo '<html><head><meta http-equiv="refresh" content="0;url=src/"></head></html>' \
+          printf '<html><head><meta http-equiv="refresh" content="0;url=src/"></head></html>' \
             > _site/index.html
 
       - name: Upload Pages artifact
@@ -61,7 +60,6 @@ jobs:
         with:
           path: _site
 
-  # ── Deploy ───────────────────────────────────────────────────────
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
@@ -76,9 +74,7 @@ jobs:
 
       - name: Post deployment summary
         run: |
-          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
