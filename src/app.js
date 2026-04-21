@@ -63,20 +63,20 @@ async function loadTechData(domainKey, techKey) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  const savedGlass    = LS.get('pcy_glass', false);
+  const savedGlass    = LS.get('pcy_glass', true);
   const savedTier     = LS.get('pcy_tier', 'l1');
   const savedQtype    = LS.get('pcy_qtype', 'scoping');
   const savedDomain   = LS.get('pcy_domain', null);
   const savedTech     = LS.get('pcy_tech', null);
   const savedProvider = LS.get('pcy_ai_provider', 'gemini');
 
-  if (savedGlass) {
-    _isGlass = true;
-    document.body.classList.add('theme-light');
-    document.getElementById('themeIcon').textContent  = '🌙';
-    const ti2 = document.getElementById('themeIcon2');
-    if (ti2) ti2.textContent = '🌙';
-  }
+  _isGlass = savedGlass;
+  document.body.classList.remove('theme-glass', 'theme-dark');
+  document.body.classList.add(_isGlass ? 'theme-glass' : 'theme-dark');
+  const _initIcon = _isGlass ? '🌙' : '☀️';
+  document.getElementById('themeIcon').textContent = _initIcon;
+  const _ti2 = document.getElementById('themeIcon2');
+  if (_ti2) _ti2.textContent = _initIcon;
 
   renderDomainGrid();
 
@@ -942,13 +942,14 @@ function _inlineMarkdown(escaped) {
 }
 
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
-let _isGlass = false;
+let _isGlass = true;
 
 function toggleTheme() {
   _isGlass = !_isGlass;
   LS.set('pcy_glass', _isGlass);
-  document.body.classList.toggle('theme-light', _isGlass);
-  const icon = _isGlass ? '☀️' : '🌙';
+  document.body.classList.remove('theme-glass', 'theme-dark');
+  document.body.classList.add(_isGlass ? 'theme-glass' : 'theme-dark');
+  const icon = _isGlass ? '🌙' : '☀️';
   document.getElementById('themeIcon').textContent = icon;
   const ti2 = document.getElementById('themeIcon2');
   if (ti2) ti2.textContent = icon;
