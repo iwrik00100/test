@@ -1,200 +1,240 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NetOps Cockpit — Incident Command</title>
-  <meta name="description" content="NetOps Cockpit: structured scoping, probing, troubleshooting, data collection playbooks and AI advisor for Windows support incidents.">
-  <meta name="theme-color" content="#080b10">
-  <meta property="og:title" content="NetOps Cockpit — Incident Command">
-  <meta property="og:description" content="Structured playbooks and AI advisor for Windows Networking, Directory Services, Performance, and more.">
-  <meta property="og:type" content="website">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 30,10 30,22 16,30 2,22 2,10' fill='%23080b10' stroke='%2300d4ff' stroke-width='2'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='14' font-family='monospace' fill='%2300d4ff'%3E⚡%3C/text%3E%3C/svg%3E">
+  <title>NetOps Cockpit — Microsoft Unified Support</title>
+  <meta name="description" content="Structured incident command for Microsoft Unified Support engineers — scoping, probing, troubleshooting, playbooks and AI advisor.">
+  <meta name="theme-color" content="#050810">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='14' height='14' x='1' y='1' fill='%23f25022'/%3E%3Crect width='14' height='14' x='17' y='1' fill='%237fba00'/%3E%3Crect width='14' height='14' x='1' y='17' fill='%2300a4ef'/%3E%3Crect width='14' height='14' x='17' y='17' fill='%23ffb900'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 
-<div class="bg-grid"></div>
+<!-- ── Landing Page ─────────────────────────────────────────── -->
+<div id="landingPage" class="page page-landing active">
 
-<header class="header">
-  <div class="header-inner">
-    <div class="logo">
-      <span class="logo-icon">⬡</span>
-      <div class="logo-text">
-        <span class="logo-title">NetOps Cockpit</span>
-        <span class="logo-sub">Incident Command · Microsoft Unified Support</span>
+  <header class="ms-header">
+    <div class="ms-header-inner">
+      <div class="ms-logo">
+        <svg class="ms-logo-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
+        <div class="ms-logo-text">
+          <span class="ms-logo-product">NetOps Cockpit</span>
+          <span class="ms-logo-org">Microsoft Unified Support</span>
+        </div>
+      </div>
+      <div class="ms-header-actions">
+        <button class="ms-theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span id="themeIcon">🌙</span>
+        </button>
       </div>
     </div>
-    <div class="header-right">
-      <div class="tier-toggle">
-        <button class="tier-btn active" data-tier="l1" onclick="setTier('l1')" aria-label="L1 Support tier">L1 Support</button>
-        <button class="tier-btn" data-tier="l2" onclick="setTier('l2')" aria-label="L2 Support tier">L2 Support</button>
-        <button class="tier-btn" data-tier="both" onclick="setTier('both')" aria-label="Both tiers">Both Tiers</button>
-      </div>
-      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">
-        <span class="theme-toggle-icon" id="themeIcon">🌙</span>
-        <span class="theme-toggle-tooltip" id="themeTooltip">Light</span>
-      </button>
+  </header>
+
+  <main class="landing-main">
+    <div class="landing-hero">
+      <div class="landing-hero-eyebrow">Incident Command Centre</div>
+      <h1 class="landing-hero-title">Select your<br>practice area</h1>
+      <p class="landing-hero-sub">Choose a domain to access structured scoping, probing, troubleshooting, data collection, and AI-powered guidance for your active incident.</p>
     </div>
-  </div>
-</header>
 
-<main class="main">
-
-  <section class="hero">
-    <h1 class="hero-title">Incident Command Centre</h1>
-    <p class="hero-sub">Select a practice area, then a technology to instantly surface structured scoping, probing, troubleshooting, data collection, and playbook guidance for your active incident.</p>
-  </section>
-
-  <!-- Domain Picker (Step 1) -->
-  <div id="domainSection">
-    <div class="step-label">
-      <span class="step-num">01</span>
-      <span class="step-text">Select Practice Area</span>
-    </div>
     <div class="domain-grid" id="domainGrid"></div>
-  </div>
 
-  <!-- Technology Picker (Step 2) -->
-  <div id="techSection" style="display:none;">
-    <div class="step-label">
-      <span class="step-num">02</span>
-      <span class="step-text">Select Technology</span>
-      <button class="back-btn" onclick="backToDomains()" aria-label="Back to practice areas">← Back</button>
+    <div class="landing-footer">
+      <span>Microsoft Unified Support · PCY Practice</span>
+      <span>7 Practice Areas · 11+ Technologies · AI Advisor</span>
     </div>
-    <div class="domain-breadcrumb" id="domainBreadcrumb"></div>
-    <div class="controls-row" id="techGrid"></div>
-  </div>
+  </main>
+</div>
 
-  <!-- Question Type Tabs -->
-  <div class="qtype-tabs" id="questionTypeRow" style="display:none;">
-    <button class="qtype-tab active" data-type="scoping" onclick="setQtype('scoping')" aria-label="Scoping questions">
-      <span class="qtype-tab-icon">🔍</span><span class="qtype-tab-label">Scoping</span>
-      <span class="qtype-tab-desc">Environment context</span>
-    </button>
-    <button class="qtype-tab" data-type="probing" onclick="setQtype('probing')" aria-label="Probing questions">
-      <span class="qtype-tab-icon">🧪</span><span class="qtype-tab-label">Probing</span>
-      <span class="qtype-tab-desc">Diagnostic commands</span>
-    </button>
-    <button class="qtype-tab" data-type="troubleshooting" onclick="setQtype('troubleshooting')" aria-label="Troubleshooting steps">
-      <span class="qtype-tab-icon">🛠</span><span class="qtype-tab-label">Troubleshooting</span>
-      <span class="qtype-tab-desc">Resolution steps</span>
-    </button>
-    <button class="qtype-tab" data-type="datacollection" onclick="setQtype('datacollection')" aria-label="Data collection">
-      <span class="qtype-tab-icon">📦</span><span class="qtype-tab-label">Data Collection</span>
-      <span class="qtype-tab-desc">Logs &amp; traces</span>
-    </button>
-    <button class="qtype-tab" data-type="all" onclick="setQtype('all')" aria-label="All question types">
-      <span class="qtype-tab-icon">📋</span><span class="qtype-tab-label">All</span>
-      <span class="qtype-tab-desc">Complete set</span>
-    </button>
-    <button class="qtype-tab" data-type="playbook" onclick="setQtype('playbook')" aria-label="Playbooks">
-      <span class="qtype-tab-icon">🗺</span><span class="qtype-tab-label">Playbook</span>
-      <span class="qtype-tab-desc">Step-by-step runbooks</span>
-    </button>
-  </div>
+<!-- ── Domain Page ──────────────────────────────────────────── -->
+<div id="domainPage" class="page page-domain">
 
-  <!-- Output Area -->
-  <div class="output-area" id="outputArea">
-    <div class="empty-state" id="emptyState">
-      <div class="empty-icon">⬡</div>
-      <div class="empty-title">Select a Practice Area</div>
-      <div class="empty-desc">Choose one of the 7 practice areas above to get started</div>
-    </div>
-    <div class="questions-output" id="questionsOutput" style="display:none;">
-      <div class="output-header">
-        <div class="output-meta" id="outputMeta"></div>
-        <div class="output-actions">
-          <button class="action-btn" onclick="copyAll()" aria-label="Copy all questions">📋 Copy All</button>
-          <div class="export-dropdown" id="exportDropdown">
-            <button class="action-btn export-trigger" onclick="toggleExportMenu()" aria-haspopup="true" aria-label="Export options">⬇ Export ▾</button>
-            <div class="export-menu" id="exportMenu" role="menu">
-              <button class="export-item" onclick="exportTxt()" role="menuitem">📄 Export .txt</button>
-              <button class="export-item" onclick="exportMd()"  role="menuitem">📝 Export .md</button>
-              <button class="export-item" onclick="exportHtml()" role="menuitem">🌐 Export .html</button>
-            </div>
-          </div>
-          <button class="action-btn" onclick="clearChecked()" aria-label="Clear all checkmarks" title="Clear checkmarks">☐ Clear Checks</button>
+  <header class="ms-header">
+    <div class="ms-header-inner">
+      <div class="ms-logo">
+        <svg class="ms-logo-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
+        <div class="ms-logo-text">
+          <span class="ms-logo-product">NetOps Cockpit</span>
+          <span class="ms-logo-org">Microsoft Unified Support</span>
         </div>
       </div>
-      <!-- Search bar -->
-      <div class="search-bar-row">
-        <span class="search-icon">🔍</span>
-        <input class="search-input" id="searchInput" type="text" placeholder="Search questions… (Ctrl+F)" oninput="filterQuestions()" aria-label="Search questions"/>
-        <span class="search-count" id="searchCount"></span>
-        <button class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Clear search" style="display:none">✕</button>
+      <div class="ms-header-actions">
+        <div class="tier-toggle">
+          <button class="tier-btn active" data-tier="l1" onclick="setTier('l1')">L1</button>
+          <button class="tier-btn" data-tier="l2" onclick="setTier('l2')">L2</button>
+          <button class="tier-btn" data-tier="both" onclick="setTier('both')">Both</button>
+        </div>
+        <button class="ms-theme-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span id="themeIcon2">🌙</span>
+        </button>
       </div>
-      <!-- Progress bar -->
-      <div class="progress-bar-row" id="progressRow" style="display:none">
-        <span class="progress-label" id="progressLabel">0 / 0 checked</span>
-        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      </div>
-      <div id="questionsList"></div>
+    </div>
+  </header>
+
+  <!-- Domain hero bar -->
+  <div class="domain-hero-bar" id="domainHeroBar">
+    <div class="domain-hero-inner">
+      <button class="domain-back-btn" onclick="backToLanding()" aria-label="Back to practice areas">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        All Practice Areas
+      </button>
+      <div class="domain-hero-identity" id="domainHeroIdentity"></div>
     </div>
   </div>
 
-  <!-- Loading indicator -->
-  <div class="loading-state" id="loadingState" style="display:none;">
-    <div class="loading-spinner">⟳</div>
-    <div class="loading-text">Loading questions…</div>
-  </div>
+  <main class="domain-main">
 
-  <!-- AI Assistant Section -->
-  <div class="ai-section" id="aiSection">
-    <div class="ai-header">
-      <div class="ai-header-top">
-        <div>
-          <span class="ai-badge">✦ Incident Advisor</span>
-          <h2 class="ai-title">Incident Advisor</h2>
-          <p class="ai-desc">Describe the exact scenario, symptoms, or error. The advisor goes beyond the question bank — root cause analysis, known bugs, registry fixes, KB articles, packet capture interpretation, and advanced PowerShell specific to the incident.</p>
-        </div>
-        <button class="action-btn ai-clear-btn" onclick="clearAiChat()" aria-label="Clear chat history" title="Clear chat (Ctrl+L)">🗑 Clear Chat</button>
-      </div>
-      <div class="ai-provider-row">
-        <span class="ai-provider-label">AI Provider:</span>
-        <div class="ai-provider-toggle">
-          <button class="ai-provider-btn active" id="providerGemini" onclick="setAiProvider('gemini')">⚡ Gemini 2.5 Flash</button>
-          <button class="ai-provider-btn" id="providerHuggingFace" onclick="setAiProvider('huggingface')">🤗 HuggingFace (Qwen2.5-72B)</button>
-        </div>
-        <span class="ai-provider-status" id="aiProviderStatus"></span>
-      </div>
-      <div class="ai-key-row" id="geminiKeyRow">
-        <input class="ai-key-input" id="geminiKeyInput" type="password" placeholder="Paste Gemini API key (AIza...)" />
-        <button class="action-btn" onclick="saveApiKey('gemini')">💾 Save Key</button>
-      </div>
-      <div class="ai-key-row" id="hfKeyRow">
-        <input class="ai-key-input" id="hfKeyInput" type="password" placeholder="Paste HuggingFace API key (hf_...)" />
-        <button class="action-btn" onclick="saveApiKey('huggingface')">💾 Save Key</button>
-      </div>
+    <!-- Tech picker -->
+    <div class="tech-section" id="techSection">
+      <div class="tech-section-label">Select Technology</div>
+      <div class="tech-grid" id="techGrid"></div>
     </div>
-    <div class="ai-input-row">
-      <textarea class="ai-input" id="aiInput" placeholder="Describe the incident — symptoms, error codes, what's been tried. The advisor will go deep: root cause analysis, known bugs, KB articles, registry fixes, packet capture interpretation, advanced PowerShell… (Enter or Ctrl+Enter to send, Shift+Enter for new line)" aria-label="Incident Advisor input"></textarea>
-      <button class="ai-btn" id="aiGenerateBtn" onclick="generateAiQuestions()" aria-label="Analyze incident">
-        <span id="aiBtnText">Analyze Incident</span>
-        <span id="aiBtnSpinner" class="spinner" style="display:none">⟳</span>
+
+    <!-- Question type tabs -->
+    <div class="qtype-tabs" id="questionTypeRow" style="display:none;">
+      <button class="qtype-tab active" data-type="scoping" onclick="setQtype('scoping')">
+        <span class="qtype-icon">🔍</span>
+        <span class="qtype-label">Scoping</span>
+        <span class="qtype-desc">Environment context</span>
+      </button>
+      <button class="qtype-tab" data-type="probing" onclick="setQtype('probing')">
+        <span class="qtype-icon">🧪</span>
+        <span class="qtype-label">Probing</span>
+        <span class="qtype-desc">Diagnostic commands</span>
+      </button>
+      <button class="qtype-tab" data-type="troubleshooting" onclick="setQtype('troubleshooting')">
+        <span class="qtype-icon">🛠</span>
+        <span class="qtype-label">Troubleshooting</span>
+        <span class="qtype-desc">Resolution steps</span>
+      </button>
+      <button class="qtype-tab" data-type="datacollection" onclick="setQtype('datacollection')">
+        <span class="qtype-icon">📦</span>
+        <span class="qtype-label">Data Collection</span>
+        <span class="qtype-desc">Logs &amp; traces</span>
+      </button>
+      <button class="qtype-tab" data-type="all" onclick="setQtype('all')">
+        <span class="qtype-icon">📋</span>
+        <span class="qtype-label">All</span>
+        <span class="qtype-desc">Complete set</span>
+      </button>
+      <button class="qtype-tab" data-type="playbook" onclick="setQtype('playbook')">
+        <span class="qtype-icon">🗺</span>
+        <span class="qtype-label">Playbook</span>
+        <span class="qtype-desc">Step-by-step runbooks</span>
       </button>
     </div>
-    <div class="ai-output" id="aiOutput" style="display:none;"></div>
-  </div>
 
-</main>
+    <!-- Output area -->
+    <div class="output-area" id="outputArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">⬡</div>
+        <div class="empty-title">Select a Technology</div>
+        <div class="empty-desc">Choose a technology above to load questions and playbooks</div>
+      </div>
+      <div class="questions-output" id="questionsOutput" style="display:none;">
+        <div class="output-header">
+          <div class="output-meta" id="outputMeta"></div>
+          <div class="output-actions">
+            <button class="action-btn" onclick="copyAll()">📋 Copy All</button>
+            <div class="export-dropdown" id="exportDropdown">
+              <button class="action-btn" onclick="toggleExportMenu()">⬇ Export ▾</button>
+              <div class="export-menu" id="exportMenu">
+                <button class="export-item" onclick="exportTxt()">📄 Export .txt</button>
+                <button class="export-item" onclick="exportMd()">📝 Export .md</button>
+                <button class="export-item" onclick="exportHtml()">🌐 Export .html</button>
+              </div>
+            </div>
+            <button class="action-btn" onclick="clearChecked()">☐ Clear Checks</button>
+          </div>
+        </div>
+        <div class="search-bar-row">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="searchInput" type="text" placeholder="Search questions… (Ctrl+F)" oninput="filterQuestions()" aria-label="Search questions"/>
+          <span class="search-count" id="searchCount"></span>
+          <button class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none">✕</button>
+        </div>
+        <div class="progress-bar-row" id="progressRow" style="display:none">
+          <span class="progress-label" id="progressLabel">0 / 0 checked</span>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+        <div id="questionsList"></div>
+      </div>
+    </div>
 
-<footer class="footer">
-  <span>NetOps Cockpit · Microsoft Unified Support · Incident Command</span>
-  <span class="footer-shortcuts">⌨ Ctrl+F Search · Ctrl+L Clear Chat · Ctrl+Enter Send · Esc Close Panel</span>
-</footer>
+    <div class="loading-state" id="loadingState" style="display:none;">
+      <div class="loading-spinner">⟳</div>
+      <div class="loading-text">Loading…</div>
+    </div>
 
+    <!-- AI Section -->
+    <div class="ai-section" id="aiSection">
+      <div class="ai-header">
+        <div class="ai-header-top">
+          <div>
+            <span class="ai-badge">✦ AI Incident Advisor</span>
+            <h2 class="ai-title">Incident Advisor</h2>
+            <p class="ai-desc">Describe the exact scenario, symptoms, or error. Goes beyond the question bank — root cause analysis, known bugs, registry fixes, KB articles, packet capture interpretation, advanced PowerShell.</p>
+          </div>
+          <button class="action-btn" onclick="clearAiChat()" title="Clear chat (Ctrl+L)">🗑 Clear</button>
+        </div>
+        <div class="ai-provider-row">
+          <span class="ai-provider-label">Provider:</span>
+          <div class="ai-provider-toggle">
+            <button class="ai-provider-btn active" id="providerGemini" onclick="setAiProvider('gemini')">⚡ Gemini 2.5 Flash</button>
+            <button class="ai-provider-btn" id="providerHuggingFace" onclick="setAiProvider('huggingface')">🤗 Qwen2.5-72B</button>
+          </div>
+          <span class="ai-provider-status" id="aiProviderStatus"></span>
+        </div>
+        <div class="ai-key-row" id="geminiKeyRow">
+          <input class="ai-key-input" id="geminiKeyInput" type="password" placeholder="Paste Gemini API key (AIza...)"/>
+          <button class="action-btn" onclick="saveApiKey('gemini')">💾 Save Key</button>
+        </div>
+        <div class="ai-key-row" id="hfKeyRow">
+          <input class="ai-key-input" id="hfKeyInput" type="password" placeholder="Paste HuggingFace API key (hf_...)"/>
+          <button class="action-btn" onclick="saveApiKey('huggingface')">💾 Save Key</button>
+        </div>
+      </div>
+      <div class="ai-input-row">
+        <textarea class="ai-input" id="aiInput" placeholder="Describe the incident — symptoms, error codes, what's been tried… (Enter to send, Shift+Enter for new line)" aria-label="Incident Advisor input"></textarea>
+        <button class="ai-btn" id="aiGenerateBtn" onclick="generateAiQuestions()">
+          <span id="aiBtnText">Analyze</span>
+          <span id="aiBtnSpinner" class="spinner" style="display:none">⟳</span>
+        </button>
+      </div>
+      <div class="ai-output" id="aiOutput" style="display:none;"></div>
+    </div>
+
+  </main>
+
+  <footer class="domain-footer">
+    <span>NetOps Cockpit · Microsoft Unified Support</span>
+    <span class="footer-shortcuts">Ctrl+F Search · Ctrl+L Clear Chat · Esc Back</span>
+  </footer>
+</div>
+
+<!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite">Copied!</div>
 
-<!-- Case Notes Sliding Panel -->
-<div class="cn-tab" id="cnTab" onclick="toggleCaseNotes()" role="button" aria-label="Open Case Notes panel" tabindex="0">
+<!-- Case Notes Tab -->
+<div class="cn-tab" id="cnTab" onclick="toggleCaseNotes()" role="button" tabindex="0" aria-label="Open Incident Log">
   <span class="cn-tab-icon">📝</span>
   <span class="cn-tab-label">Incident Log</span>
 </div>
 
-<div class="cn-overlay" id="cnOverlay" onclick="toggleCaseNotes()" aria-hidden="true"></div>
+<div class="cn-overlay" id="cnOverlay" onclick="toggleCaseNotes()"></div>
 
 <div class="cn-panel" id="cnPanel" role="dialog" aria-label="Incident Log" aria-modal="true">
   <div class="cn-panel-header">
@@ -207,39 +247,20 @@
     </div>
     <div class="cn-header-actions">
       <span class="cn-saved-indicator" id="cnSavedIndicator"></span>
-      <button class="cn-action-btn" onclick="clearAllNotes()" title="Clear all fields" aria-label="Clear all fields">🗑 Clear</button>
-      <button class="cn-action-btn" onclick="copyCaseNote()" title="Copy formatted note" aria-label="Copy formatted note">📋 Copy Note</button>
-      <button class="cn-close" onclick="toggleCaseNotes()" title="Close (Esc)" aria-label="Close panel">✕</button>
+      <button class="cn-action-btn" onclick="clearAllNotes()">🗑 Clear</button>
+      <button class="cn-action-btn" onclick="copyCaseNote()">📋 Copy Note</button>
+      <button class="cn-close" onclick="toggleCaseNotes()">✕</button>
     </div>
   </div>
   <div class="cn-body">
     <div class="cn-meta-row">
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-sr">SR / ICM Number</label>
-        <input class="cn-input" id="cn-sr" type="text" placeholder="e.g. 2409150040012345" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-date">Date</label>
-        <input class="cn-input" id="cn-date" type="date" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-followup">Follow-up Date</label>
-        <input class="cn-input" id="cn-followup" type="date" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-engineer">Engineer</label>
-        <input class="cn-input" id="cn-engineer" type="text" placeholder="Your name / alias" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-customer">Customer</label>
-        <input class="cn-input" id="cn-customer" type="text" placeholder="Customer / tenant name" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-tech">Technology</label>
-        <input class="cn-input" id="cn-tech" type="text" placeholder="e.g. DNS Server, VPN, NPS" oninput="updatePreview()">
-      </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-severity">Severity</label>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-sr">SR / ICM Number</label><input class="cn-input" id="cn-sr" type="text" placeholder="e.g. 2409150040012345" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-date">Date</label><input class="cn-input" id="cn-date" type="date" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-followup">Follow-up Date</label><input class="cn-input" id="cn-followup" type="date" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-engineer">Engineer</label><input class="cn-input" id="cn-engineer" type="text" placeholder="Your name / alias" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-customer">Customer</label><input class="cn-input" id="cn-customer" type="text" placeholder="Customer / tenant name" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-tech">Technology</label><input class="cn-input" id="cn-tech" type="text" placeholder="e.g. DNS Server, VPN" oninput="updatePreview()"></div>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-severity">Severity</label>
         <select class="cn-input cn-select" id="cn-severity" onchange="updatePreview()">
           <option value="">Select severity</option>
           <option>Sev A – Critical (production down)</option>
@@ -248,8 +269,7 @@
           <option>Sev D – Low (minimal impact)</option>
         </select>
       </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-status">Case Status</label>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-status">Case Status</label>
         <select class="cn-input cn-select" id="cn-status" onchange="updatePreview()">
           <option value="">Select status</option>
           <option>🟢 Active – In Progress</option>
@@ -260,8 +280,7 @@
           <option>🔒 Closed</option>
         </select>
       </div>
-      <div class="cn-meta-field">
-        <label class="cn-label" for="cn-contact">Contact Type</label>
+      <div class="cn-meta-field"><label class="cn-label" for="cn-contact">Contact Type</label>
         <select class="cn-input cn-select" id="cn-contact" onchange="updatePreview()">
           <option value="">Select type</option>
           <option>📞 Phone</option>
@@ -274,112 +293,30 @@
     </div>
     <div class="cn-divider"></div>
     <div class="cn-sections">
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🔴</span>
-          <span class="cn-section-title">Issue</span>
-          <span class="cn-section-hint">Symptom, error messages, business impact.</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-issue" rows="4" placeholder="• Describe the problem in one clear sentence&#10;• Include exact error messages or codes&#10;• State the business impact&#10;• Note when it started" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🖥</span>
-          <span class="cn-section-title">Environment Details</span>
-          <span class="cn-section-hint">OS versions, topology, roles, infrastructure context.</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-env" rows="5" placeholder="• OS / Windows Server version&#10;• Domain / Forest functional level&#10;• Number of affected machines / users / sites&#10;• Relevant roles (DC, DNS, DHCP, NPS, RRAS, etc.)&#10;• Network topology (on-prem / hybrid / Azure)" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🔍</span>
-          <span class="cn-section-title">Assessment / Troubleshooting Done</span>
-          <span class="cn-section-hint">What has already been investigated or attempted?</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-assessment" rows="6" placeholder="• Steps already taken by customer&#10;• Diagnostic commands run and findings&#10;• Event IDs reviewed&#10;• Hypotheses tested and results&#10;• Current working theory / root cause hypothesis" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">📦</span>
-          <span class="cn-section-title">Data Collection</span>
-          <span class="cn-section-hint">Logs, traces, and exports collected or requested.</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-data" rows="4" placeholder="• Network traces collected&#10;• Event logs exported&#10;• Diagnostic outputs&#10;• Data still pending from customer" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🔁</span>
-          <span class="cn-section-title">Repro Steps</span>
-          <span class="cn-section-hint">Exact steps to reproduce the issue consistently.</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-repro" rows="4" placeholder="1. Start from a known-good state&#10;2. Perform action X on machine Y&#10;3. Observe symptom Z&#10;• Repro rate (e.g. 3 out of 5 attempts)" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🕐</span>
-          <span class="cn-section-title">Recent Changes</span>
-          <span class="cn-section-hint">Any changes made before the issue started.</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-changes" rows="4" placeholder="• Windows Updates / patches applied&#10;• Group Policy or AD changes&#10;• Network / firewall / switch configuration changes&#10;• Certificate renewals or PKI changes" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">📋</span>
-          <span class="cn-section-title">Action Plan</span>
-          <span class="cn-section-hint">Next steps split by owner.</span>
-        </div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🔴</span><span class="cn-section-title">Issue</span><span class="cn-section-hint">Symptom, error messages, business impact.</span></div><textarea class="cn-textarea" id="cn-issue" rows="4" placeholder="• Describe the problem&#10;• Include exact error messages&#10;• State business impact&#10;• Note when it started" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🖥</span><span class="cn-section-title">Environment Details</span><span class="cn-section-hint">OS versions, topology, roles, infrastructure.</span></div><textarea class="cn-textarea" id="cn-env" rows="4" placeholder="• OS / Windows Server version&#10;• Domain / Forest functional level&#10;• Affected machines / users / sites&#10;• Relevant roles and topology" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🔍</span><span class="cn-section-title">Assessment / Troubleshooting Done</span><span class="cn-section-hint">What has already been investigated?</span></div><textarea class="cn-textarea" id="cn-assessment" rows="5" placeholder="• Steps already taken&#10;• Commands run and findings&#10;• Event IDs reviewed&#10;• Current root cause hypothesis" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">📦</span><span class="cn-section-title">Data Collection</span><span class="cn-section-hint">Logs, traces, exports collected or requested.</span></div><textarea class="cn-textarea" id="cn-data" rows="4" placeholder="• Network traces collected&#10;• Event logs exported&#10;• Data pending from customer" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🔁</span><span class="cn-section-title">Repro Steps</span><span class="cn-section-hint">Exact steps to reproduce consistently.</span></div><textarea class="cn-textarea" id="cn-repro" rows="4" placeholder="1. Start from known-good state&#10;2. Perform action X&#10;3. Observe symptom Z&#10;• Repro rate" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🕐</span><span class="cn-section-title">Recent Changes</span><span class="cn-section-hint">Changes made before the issue started.</span></div><textarea class="cn-textarea" id="cn-changes" rows="4" placeholder="• Windows Updates / patches&#10;• GPO or AD changes&#10;• Network / firewall changes&#10;• Certificate renewals" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">📋</span><span class="cn-section-title">Action Plan</span><span class="cn-section-hint">Next steps split by owner.</span></div>
         <div class="cn-action-split">
-          <div class="cn-action-col">
-            <div class="cn-action-col-label pending-customer">⏳ Pending on Customer</div>
-            <textarea class="cn-textarea" id="cn-action-customer" rows="5" placeholder="• Run [command] and share output&#10;• Collect [log/trace] during next occurrence&#10;• Confirm if [workaround] resolves the issue" oninput="updatePreview()"></textarea>
-          </div>
-          <div class="cn-action-col">
-            <div class="cn-action-col-label pending-ms">🔬 Pending on Microsoft</div>
-            <textarea class="cn-textarea" id="cn-action-ms" rows="5" placeholder="• Review [logs/trace] provided by customer&#10;• Research KB / known issue for [symptom]&#10;• Follow up by [date/time]" oninput="updatePreview()"></textarea>
-          </div>
+          <div class="cn-action-col"><div class="cn-action-col-label pending-customer">⏳ Pending on Customer</div><textarea class="cn-textarea" id="cn-action-customer" rows="5" placeholder="• Run [command] and share output&#10;• Collect [log/trace]&#10;• Confirm if workaround resolves" oninput="updatePreview()"></textarea></div>
+          <div class="cn-action-col"><div class="cn-action-col-label pending-ms">🔬 Pending on Microsoft</div><textarea class="cn-textarea" id="cn-action-ms" rows="5" placeholder="• Review logs provided&#10;• Research KB / known issue&#10;• Follow up by [date]" oninput="updatePreview()"></textarea></div>
         </div>
       </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">✅</span>
-          <span class="cn-section-title">Resolution / Root Cause</span>
-          <span class="cn-section-hint">What ultimately fixed the issue?</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-resolution" rows="4" placeholder="• Root cause identified&#10;• Fix applied (exact steps taken to resolve)&#10;• KB article or known issue reference&#10;• Verification steps confirming resolution" oninput="updatePreview()"></textarea>
-      </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">🔗</span>
-          <span class="cn-section-title">KB / Escalation References</span>
-        </div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">✅</span><span class="cn-section-title">Resolution / Root Cause</span><span class="cn-section-hint">What ultimately fixed the issue?</span></div><textarea class="cn-textarea" id="cn-resolution" rows="4" placeholder="• Root cause identified&#10;• Fix applied&#10;• KB article reference&#10;• Verification steps" oninput="updatePreview()"></textarea></div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">🔗</span><span class="cn-section-title">KB / Escalation References</span></div>
         <div class="cn-ref-row">
-          <div class="cn-meta-field">
-            <label class="cn-label" for="cn-kb">KB / Known Issue</label>
-            <input class="cn-input" id="cn-kb" type="text" placeholder="e.g. KB5034441, Bug #12345678" oninput="updatePreview()">
-          </div>
-          <div class="cn-meta-field">
-            <label class="cn-label" for="cn-escalation">Escalated To</label>
-            <input class="cn-input" id="cn-escalation" type="text" placeholder="e.g. L2 Engineer / PG alias" oninput="updatePreview()">
-          </div>
-          <div class="cn-meta-field">
-            <label class="cn-label" for="cn-related-sr">Related SR(s)</label>
-            <input class="cn-input" id="cn-related-sr" type="text" placeholder="e.g. 2409150040099999" oninput="updatePreview()">
-          </div>
+          <div class="cn-meta-field"><label class="cn-label" for="cn-kb">KB / Known Issue</label><input class="cn-input" id="cn-kb" type="text" placeholder="e.g. KB5034441" oninput="updatePreview()"></div>
+          <div class="cn-meta-field"><label class="cn-label" for="cn-escalation">Escalated To</label><input class="cn-input" id="cn-escalation" type="text" placeholder="e.g. L2 Engineer / PG alias" oninput="updatePreview()"></div>
+          <div class="cn-meta-field"><label class="cn-label" for="cn-related-sr">Related SR(s)</label><input class="cn-input" id="cn-related-sr" type="text" placeholder="e.g. 2409150040099999" oninput="updatePreview()"></div>
         </div>
       </div>
-      <div class="cn-section">
-        <div class="cn-section-header">
-          <span class="cn-section-icon">💬</span>
-          <span class="cn-section-title">Additional Notes</span>
-        </div>
-        <textarea class="cn-textarea" id="cn-notes" rows="3" placeholder="• Customer sentiment / urgency level&#10;• Escalation path (L2 / PG / Partner)&#10;• Internal notes not for customer-facing communication" oninput="updatePreview()"></textarea>
-      </div>
+      <div class="cn-section"><div class="cn-section-header"><span class="cn-section-icon">💬</span><span class="cn-section-title">Additional Notes</span></div><textarea class="cn-textarea" id="cn-notes" rows="3" placeholder="• Customer sentiment&#10;• Escalation path&#10;• Internal notes" oninput="updatePreview()"></textarea></div>
     </div>
-    <div class="cn-preview-wrap" id="cnPreviewWrap">
-      <button class="cn-preview-toggle" id="cnPreviewToggle" onclick="toggleCnPreview()">
-        <span id="cnPreviewToggleIcon">▶</span>
-        <span>Formatted Note Preview</span>
-      </button>
+    <div class="cn-preview-wrap">
+      <button class="cn-preview-toggle" onclick="toggleCnPreview()"><span id="cnPreviewToggleIcon">▶</span> Formatted Note Preview</button>
       <pre class="cn-preview" id="cnPreview" style="display:none"></pre>
     </div>
   </div>

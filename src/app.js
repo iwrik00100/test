@@ -72,9 +72,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (savedGlass) {
     _isGlass = true;
-    document.body.classList.add('theme-glass');
-    document.getElementById('themeIcon').textContent    = '☀️';
-    document.getElementById('themeTooltip').textContent = 'Dark';
+    document.body.classList.add('theme-light');
+    document.getElementById('themeIcon').textContent  = '🌙';
+    const ti2 = document.getElementById('themeIcon2');
+    if (ti2) ti2.textContent = '🌙';
   }
 
   renderDomainGrid();
@@ -128,7 +129,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// ─── Page Navigation ──────────────────────────────────────────────────────────
+function _showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+}
+
 // ─── Domain Grid ──────────────────────────────────────────────────────────────
+const DOMAIN_TECH_COUNTS = {
+  networking: '11 technologies',
+  directory_services: '7 technologies',
+  performance: '6 technologies',
+  user_experience: '6 technologies',
+  device_deployment: '6 technologies',
+  storage_ha: '6 technologies',
+  collaboration: '6 technologies'
+};
+
 function renderDomainGrid() {
   const grid = document.getElementById('domainGrid');
   grid.innerHTML = '';
@@ -137,9 +154,16 @@ function renderDomainGrid() {
     card.className = 'domain-card';
     card.dataset.domain = d.key;
     card.innerHTML = `
-      <span class="domain-card-icon">${d.icon}</span>
-      <span class="domain-card-label">${d.label}</span>
-      <span class="domain-card-desc">${d.description}</span>`;
+      <div class="domain-card-bar"></div>
+      <div class="domain-card-body">
+        <div class="domain-card-icon-wrap">${d.icon}</div>
+        <div class="domain-card-label">${d.label}</div>
+        <div class="domain-card-desc">${d.description}</div>
+        <div class="domain-card-footer">
+          <span class="domain-card-count">${DOMAIN_TECH_COUNTS[d.key] || ''}</span>
+          <span class="domain-card-arrow">→</span>
+        </div>
+      </div>`;
     card.onclick = () => selectDomain(d.key);
     grid.appendChild(card);
   });
@@ -147,23 +171,21 @@ function renderDomainGrid() {
 
 // ─── Domain Selection ─────────────────────────────────────────────────────────
 async function selectDomain(domainKey, persist = true) {
-  state.activeDomain = domainKey;
-  state.activeTech   = null;
+  state.activeDomain   = domainKey;
+  state.activeTech     = null;
   state.activePlaybook = null;
   if (persist) LS.set('pcy_domain', domainKey);
 
-  document.querySelectorAll('.domain-card').forEach(c =>
-    c.classList.toggle('active', c.dataset.domain === domainKey));
-
+  _showPage('domainPage');
   _showLoading(true);
   try {
-    const index = await loadDomainIndex(domainKey);
-    renderTechGrid(index);
+    const index  = await loadDomainIndex(domainKey);
     const domain = DOMAINS.find(d => d.key === domainKey);
-    document.getElementById('domainBreadcrumb').innerHTML =
-      `<span class="breadcrumb-icon">${domain?.icon}</span>
-       <span class="breadcrumb-label">${domain?.label}</span>`;
-    document.getElementById('techSection').style.display = '';
+    // Update domain hero bar
+    document.getElementById('domainHeroIdentity').innerHTML =
+      `<span class="domain-hero-icon">${domain?.icon}</span>
+       <span class="domain-hero-name">${domain?.label}</span>`;
+    renderTechGrid(index);
     document.getElementById('questionTypeRow').style.display = 'none';
     document.getElementById('questionsOutput').style.display = 'none';
     document.getElementById('emptyState').style.display = '';
@@ -177,39 +199,29 @@ async function selectDomain(domainKey, persist = true) {
   }
 }
 
-function backToDomains() {
+function backToLanding() {
   state.activeDomain   = null;
   state.activeTech     = null;
   state.activePlaybook = null;
   LS.set('pcy_domain', null);
   LS.set('pcy_tech', null);
-  document.getElementById('techSection').style.display = 'none';
-  document.getElementById('questionTypeRow').style.display = 'none';
-  document.getElementById('questionsOutput').style.display = 'none';
-  document.getElementById('emptyState').style.display = '';
-  document.getElementById('emptyState').querySelector('.empty-title').textContent = 'Select a Practice Area';
-  document.getElementById('emptyState').querySelector('.empty-desc').textContent = 'Choose one of the 7 practice areas above to get started';
-  document.querySelectorAll('.domain-card').forEach(c => c.classList.remove('active'));
+  _showPage('landingPage');
 }
+
+function backToDomains() { backToLanding(); }
 
 // ─── Tech Grid ────────────────────────────────────────────────────────────────
 function renderTechGrid(index) {
   const grid = document.getElementById('techGrid');
   grid.innerHTML = '';
-  const group = document.createElement('div');
-  group.className = 'tech-group';
-  const techGrid = document.createElement('div');
-  techGrid.className = 'tech-grid';
   index.technologies.forEach(t => {
     const btn = document.createElement('button');
     btn.className = 'tech-btn';
     btn.dataset.tech = t.key;
     btn.innerHTML = `<span class="tech-icon">${t.icon}</span><span class="tech-label">${t.label}</span>`;
     btn.onclick = () => selectTech(t.key);
-    techGrid.appendChild(btn);
+    grid.appendChild(btn);
   });
-  group.appendChild(techGrid);
-  grid.appendChild(group);
 }
 
 // ─── Tech Selection ───────────────────────────────────────────────────────────
@@ -935,9 +947,11 @@ let _isGlass = false;
 function toggleTheme() {
   _isGlass = !_isGlass;
   LS.set('pcy_glass', _isGlass);
-  document.body.classList.toggle('theme-glass', _isGlass);
-  document.getElementById('themeIcon').textContent    = _isGlass ? '☀️' : '🌙';
-  document.getElementById('themeTooltip').textContent = _isGlass ? 'Dark' : 'Light';
+  document.body.classList.toggle('theme-light', _isGlass);
+  const icon = _isGlass ? '☀️' : '🌙';
+  document.getElementById('themeIcon').textContent = icon;
+  const ti2 = document.getElementById('themeIcon2');
+  if (ti2) ti2.textContent = icon;
 }
 
 // ─── Case Notes Panel ─────────────────────────────────────────────────────────
@@ -1080,9 +1094,9 @@ function toggleCnPreview() {
 
 // ─── Keyboard Shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && _cnOpen) {
-    toggleCaseNotes();
-    return;
+  if (e.key === 'Escape') {
+    if (_cnOpen) { toggleCaseNotes(); return; }
+    if (state.activeDomain) { backToLanding(); return; }
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     const si = document.getElementById('searchInput');
