@@ -2,7 +2,7 @@
 
 A professional incident command platform for L1 and L2 Microsoft Unified Support engineers. Structured scoping, probing, troubleshooting, data collection and step-by-step playbooks for Windows Server and Azure support scenarios.
 
-**Live:** https://iwrik00100.github.io/test/src/
+**Live:** https://iwrik00100.github.io/nexus/src/
 
 ---
 

@@ -4,11 +4,40 @@
   "icon": "📦",
   "description": "Intune, SCCM/ConfigMgr, Autopilot, WSUS, WDS, OS Deployment",
   "technologies": [
-    { "key": "intune", "label": "Microsoft Intune", "icon": "📱" },
-    { "key": "sccm", "label": "SCCM / ConfigMgr", "icon": "🖥" },
-    { "key": "autopilot", "label": "Windows Autopilot", "icon": "🚀" },
-    { "key": "wsus", "label": "WSUS", "icon": "🔄" },
-    { "key": "wds", "label": "WDS / MDT", "icon": "💿" },
-    { "key": "co_management", "label": "Co-Management", "icon": "🔗" }
+    {
+      "key": "coming_soon",
+      "label": "Coming Soon",
+      "icon": "🚧"
+    },
+    {
+      "key": "intune",
+      "label": "Microsoft Intune",
+      "icon": "📱"
+    },
+    {
+      "key": "sccm",
+      "label": "SCCM / ConfigMgr",
+      "icon": "🖥"
+    },
+    {
+      "key": "autopilot",
+      "label": "Windows Autopilot",
+      "icon": "🚀"
+    },
+    {
+      "key": "wsus",
+      "label": "WSUS",
+      "icon": "🔄"
+    },
+    {
+      "key": "wds",
+      "label": "WDS / MDT",
+      "icon": "💿"
+    },
+    {
+      "key": "co_management",
+      "label": "Co-Management",
+      "icon": "🔗"
+    }
   ]
 }

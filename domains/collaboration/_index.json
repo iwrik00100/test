@@ -4,11 +4,40 @@
   "icon": "🤝",
   "description": "Exchange Online, Microsoft Teams, SharePoint, OneDrive, M365 connectivity",
   "technologies": [
-    { "key": "exchange", "label": "Exchange Online", "icon": "📧" },
-    { "key": "teams", "label": "Microsoft Teams", "icon": "💬" },
-    { "key": "sharepoint", "label": "SharePoint Online", "icon": "📋" },
-    { "key": "onedrive", "label": "OneDrive for Business", "icon": "☁️" },
-    { "key": "m365_connectivity", "label": "M365 Connectivity", "icon": "🌐" },
-    { "key": "hybrid_mail", "label": "Hybrid Mail Flow", "icon": "🔀" }
+    {
+      "key": "coming_soon",
+      "label": "Coming Soon",
+      "icon": "🚧"
+    },
+    {
+      "key": "exchange",
+      "label": "Exchange Online",
+      "icon": "📧"
+    },
+    {
+      "key": "teams",
+      "label": "Microsoft Teams",
+      "icon": "💬"
+    },
+    {
+      "key": "sharepoint",
+      "label": "SharePoint Online",
+      "icon": "📋"
+    },
+    {
+      "key": "onedrive",
+      "label": "OneDrive for Business",
+      "icon": "☁️"
+    },
+    {
+      "key": "m365_connectivity",
+      "label": "M365 Connectivity",
+      "icon": "🌐"
+    },
+    {
+      "key": "hybrid_mail",
+      "label": "Hybrid Mail Flow",
+      "icon": "🔀"
+    }
   ]
 }

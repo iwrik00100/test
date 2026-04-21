@@ -4,11 +4,40 @@
   "icon": "💾",
   "description": "Storage Spaces, Failover Clustering, Hyper-V, ReFS, iSCSI, S2D",
   "technologies": [
-    { "key": "storage_spaces", "label": "Storage Spaces / S2D", "icon": "🗂" },
-    { "key": "failover_cluster", "label": "Failover Clustering", "icon": "🔁" },
-    { "key": "hyper_v", "label": "Hyper-V", "icon": "🖥" },
-    { "key": "refs", "label": "ReFS / NTFS", "icon": "📁" },
-    { "key": "iscsi", "label": "iSCSI / FC SAN", "icon": "🔌" },
-    { "key": "backup", "label": "Windows Server Backup", "icon": "🛡" }
+    {
+      "key": "coming_soon",
+      "label": "Coming Soon",
+      "icon": "🚧"
+    },
+    {
+      "key": "storage_spaces",
+      "label": "Storage Spaces / S2D",
+      "icon": "🗂"
+    },
+    {
+      "key": "failover_cluster",
+      "label": "Failover Clustering",
+      "icon": "🔁"
+    },
+    {
+      "key": "hyper_v",
+      "label": "Hyper-V",
+      "icon": "🖥"
+    },
+    {
+      "key": "refs",
+      "label": "ReFS / NTFS",
+      "icon": "📁"
+    },
+    {
+      "key": "iscsi",
+      "label": "iSCSI / FC SAN",
+      "icon": "🔌"
+    },
+    {
+      "key": "backup",
+      "label": "Windows Server Backup",
+      "icon": "🛡"
+    }
   ]
 }

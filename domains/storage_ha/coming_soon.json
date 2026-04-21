@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "storage_ha",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the Storage and High Availability tech lead.",
+      "To contribute content, see CONTRIBUTING.md in the repository root.",
+      "Which Storage and High Availability technology are you troubleshooting? (Storage Spaces, Failover Clustering, Hyper-V, ReFS/NTFS, iSCSI/FC SAN, Windows Server Backup)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the Storage and High Availability tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced Storage and High Availability scenario are you investigating? (Storage Spaces, Failover Clustering, Hyper-V, ReFS/NTFS, iSCSI/FC SAN, Windows Server Backup)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the Storage and High Availability tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-StoragePool | Select FriendlyName,HealthStatus,OperationalStatus,Size,AllocatedSize'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the Storage and High Availability tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-ClusterNode | Select Name,State,NodeWeight' to confirm Failover Cluster node health and voting configuration."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the Storage and High Availability tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-VirtualDisk | Where HealthStatus -ne Healthy | Select FriendlyName,HealthStatus,OperationalStatus' to identify degraded virtual disks."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the Storage and High Availability tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Repair-VirtualDisk -FriendlyName <name>' to initiate Storage Spaces repair after a disk failure."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the Storage and High Availability tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-StoragePool | Out-File C:\\storage_pools.txt' and 'Get-VirtualDisk | Out-File C:\\virtual_disks.txt'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the Storage and High Availability tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-ClusterLog -Destination C:\\ClusterLogs\\' to collect full Failover Cluster diagnostic logs from all nodes."
+    ]
+  }
+}

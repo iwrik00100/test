@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "device_deployment",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the Device and Deployment tech lead.",
+      "To contribute content, see CONTRIBUTING.md in the repository root.",
+      "Which Device and Deployment technology are you troubleshooting? (Intune, SCCM/ConfigMgr, Windows Autopilot, WSUS, WDS/MDT, Co-Management)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the Device and Deployment tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced Device and Deployment scenario are you investigating? (Intune, SCCM/ConfigMgr, Windows Autopilot, WSUS, WDS/MDT, Co-Management)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the Device and Deployment tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Admin | Select -First 20 | Format-List'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the Device and Deployment tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'MDMDiagnosticsTool.exe -out C:\\MDMLogs\\' to collect full Intune/MDM diagnostic report."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the Device and Deployment tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'dsregcmd /status' to confirm Azure AD join state, MDM enrollment, and SSO status."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the Device and Deployment tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'dsregcmd /leave' then re-enrol to resolve most Intune/Azure AD join issues on Windows 10/11."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the Device and Deployment tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'MDMDiagnosticsTool.exe -out C:\\MDMLogs\\' and share the MDMDiagReport.html"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the Device and Deployment tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Collect SCCM client logs from C:\\Windows\\CCM\\Logs\\ — focus on CcmExec.log, PolicyAgent.log, and AppEnforce.log."
+    ]
+  }
+}

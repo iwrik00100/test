@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "directory_services",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the Directory Services tech lead.",
+      "To contribute scoping, probing, troubleshooting or playbook content, see CONTRIBUTING.md in the repository root.",
+      "Which Directory Services technology are you troubleshooting? (AD DS, AD CS, AD FS, Azure AD, Kerberos, LDAP, Group Policy)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the Directory Services tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced Directory Services scenario are you investigating? (Replication, PKI, Federation, Conditional Access, Kerberos delegation)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the Directory Services tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'dcdiag /test:replications /v' and share the output — this is the starting point for most AD DS issues."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the Directory Services tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'repadmin /showrepl * /csv > C:\\repadmin.csv' and share — this covers AD replication health across all DCs."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the Directory Services tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Restart the Netlogon service: 'Restart-Service Netlogon' — resolves many transient AD authentication issues."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the Directory Services tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Force AD replication: 'repadmin /syncall /Adep' — synchronises all DCs and resolves most replication lag issues."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the Directory Services tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'dcdiag /v /f:C:\\dcdiag.txt' — collects comprehensive DC health diagnostics for escalation."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the Directory Services tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'repadmin /showrepl * /csv > C:\\repadmin.csv' and 'netdom query fsmo > C:\\fsmo.txt' — essential for L2 AD escalations."
+    ]
+  }
+}

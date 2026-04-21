@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "collaboration",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the Collaboration tech lead.",
+      "To contribute content, see CONTRIBUTING.md in the repository root.",
+      "Which Collaboration technology are you troubleshooting? (Exchange Online, Microsoft Teams, SharePoint Online, OneDrive for Business, M365 Connectivity, Hybrid Mail Flow)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the Collaboration tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced Collaboration scenario are you investigating? (Exchange Online, Microsoft Teams, SharePoint Online, OneDrive for Business, M365 Connectivity, Hybrid Mail Flow)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the Collaboration tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Test-NetConnection -ComputerName outlook.office365.com -Port 443' to confirm M365 connectivity from the client."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the Collaboration tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-MessageTrace -SenderAddress <sender> -RecipientAddress <recipient> -StartDate (Get-Date).AddDays(-7) -EndDate (Get-Date)' to trace mail flow in Exchange Online."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the Collaboration tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Clear the Teams cache: close Teams, delete %appdata%\\Microsoft\\Teams\\Cache — resolves most Teams client issues."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the Collaboration tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Test-MAPIConnectivity' in Exchange Online PowerShell to confirm MAPI over HTTPS connectivity for Outlook clients."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the Collaboration tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Run Microsoft Support and Recovery Assistant (SaRA) to collect diagnostics for Teams, Outlook, and OneDrive issues."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the Collaboration tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Export Exchange Online message trace: 'Get-MessageTrace | Export-Csv C:\\mail_trace.csv -NoTypeInformation'"
+    ]
+  }
+}

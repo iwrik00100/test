@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "user_experience",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the User Experience tech lead.",
+      "To contribute content, see CONTRIBUTING.md in the repository root.",
+      "Which User Experience technology are you troubleshooting? (Logon, User Profiles, App Compatibility, Azure Virtual Desktop, RDS, Printing)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the User Experience tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced User Experience scenario are you investigating? (Logon, User Profiles, App Compatibility, Azure Virtual Desktop, RDS, Printing)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the User Experience tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-User Profile Service/Operational | Select -First 20 | Format-List'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the User Experience tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-GroupPolicy/Operational | Where Id -in 4000,4001,4016,4017 | Select -First 20 | Format-List'"
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the User Experience tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'gpupdate /force' to refresh Group Policy and resolve many logon and profile issues."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the User Experience tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'gpresult /h C:\\gpo_report.html' and open in browser to identify denied or conflicting Group Policy objects."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the User Experience tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Export User Profile Service log: 'wevtutil epl Microsoft-Windows-User Profile Service/Operational C:\\UPS_Events.evtx'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the User Experience tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-GroupPolicy/Operational | Export-Clixml C:\\gpo_events.xml'"
+    ]
+  }
+}

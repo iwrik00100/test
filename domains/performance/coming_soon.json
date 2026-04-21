@@ -1,0 +1,54 @@
+{
+  "key": "coming_soon",
+  "label": "Coming Soon",
+  "icon": "🚧",
+  "domain": "performance",
+  "scoping": {
+    "l1": [
+      "This discipline is under active development — questions will be added by the Performance tech lead.",
+      "To contribute content, see CONTRIBUTING.md in the repository root.",
+      "Which Performance technology are you troubleshooting? (CPU, Memory, Disk I/O, Network Throughput, WPA/ETW Tracing, PerfMon)"
+    ],
+    "l2": [
+      "This discipline is under active development — L2 questions will be added by the Performance tech lead.",
+      "To contribute advanced questions and playbooks, see CONTRIBUTING.md in the repository root.",
+      "Which advanced Performance scenario are you investigating? (CPU, Memory, Disk I/O, Network Throughput, WPA/ETW Tracing, PerfMon)"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "This discipline is under active development — probing commands will be added by the Performance tech lead.",
+      "To contribute diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-Counter -ListSet * | Select-String CPU,Memory,Disk' to list available performance counters."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced probing will be added by the Performance tech lead.",
+      "To contribute advanced diagnostic commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'xperf -on DiagEasy -f C:\\trace.etl' to capture a WPA/ETW trace for advanced performance analysis."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "This discipline is under active development — troubleshooting steps will be added by the Performance tech lead.",
+      "To contribute resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-Process | Sort-Object CPU -Descending | Select -First 10' to identify top CPU consumers."
+    ],
+    "l2": [
+      "This discipline is under active development — advanced troubleshooting will be added by the Performance tech lead.",
+      "To contribute advanced resolution steps, see CONTRIBUTING.md in the repository root.",
+      "Analyse the WPA trace in Windows Performance Analyzer — look for CPU scheduling, disk I/O wait, and memory pressure events."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "This discipline is under active development — data collection steps will be added by the Performance tech lead.",
+      "To contribute data collection commands, see CONTRIBUTING.md in the repository root.",
+      "Run 'Get-Counter -Counter \"\\Processor(_Total)\\% Processor Time\" -SampleInterval 5 -MaxSamples 12 | Export-Csv C:\\cpu.csv'"
+    ],
+    "l2": [
+      "This discipline is under active development — advanced data collection will be added by the Performance tech lead.",
+      "To contribute advanced collection steps, see CONTRIBUTING.md in the repository root.",
+      "Run 'xperf -on DiagEasy -f C:\\perf_trace.etl' — reproduce the issue — 'xperf -d C:\\perf_trace.etl' — open in WPA."
+    ]
+  }
+}

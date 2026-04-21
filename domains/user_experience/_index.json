@@ -4,11 +4,40 @@
   "icon": "👤",
   "description": "Logon, User Profiles, Group Policy, App Compatibility, AVD/WVD, RDS",
   "technologies": [
-    { "key": "logon", "label": "Logon & Authentication", "icon": "🔑" },
-    { "key": "user_profiles", "label": "User Profiles", "icon": "👤" },
-    { "key": "app_compat", "label": "App Compatibility", "icon": "🧩" },
-    { "key": "avd", "label": "Azure Virtual Desktop", "icon": "🖥" },
-    { "key": "rds", "label": "Remote Desktop Services", "icon": "🖱" },
-    { "key": "printing", "label": "Printing", "icon": "🖨" }
+    {
+      "key": "coming_soon",
+      "label": "Coming Soon",
+      "icon": "🚧"
+    },
+    {
+      "key": "logon",
+      "label": "Logon & Authentication",
+      "icon": "🔑"
+    },
+    {
+      "key": "user_profiles",
+      "label": "User Profiles",
+      "icon": "👤"
+    },
+    {
+      "key": "app_compat",
+      "label": "App Compatibility",
+      "icon": "🧩"
+    },
+    {
+      "key": "avd",
+      "label": "Azure Virtual Desktop",
+      "icon": "🖥"
+    },
+    {
+      "key": "rds",
+      "label": "Remote Desktop Services",
+      "icon": "🖱"
+    },
+    {
+      "key": "printing",
+      "label": "Printing",
+      "icon": "🖨"
+    }
   ]
 }

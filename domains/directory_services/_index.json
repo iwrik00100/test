@@ -4,6 +4,7 @@
   "icon": "🏛",
   "description": "Active Directory DS, AD CS, AD FS, Azure AD, Kerberos, LDAP, Group Policy",
   "technologies": [
+    { "key": "coming_soon", "label": "Coming Soon", "icon": "🚧" },
     { "key": "ad_ds", "label": "AD DS", "icon": "🏛" },
     { "key": "ad_cs", "label": "AD CS (PKI)", "icon": "🔏" },
     { "key": "ad_fs", "label": "AD FS", "icon": "🪪" },
