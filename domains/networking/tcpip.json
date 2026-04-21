@@ -1,0 +1,165 @@
+{
+  "key": "tcpip",
+  "label": "TCP/IP",
+  "icon": "🌐",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows version and build is the affected machine? (winver or Get-ComputerInfo | Select OsName,OsVersion,OsBuildNumber)",
+      "What is the exact symptom — complete loss of connectivity, partial connectivity (some IPs reachable, others not), high latency, packet loss, or intermittent drops?",
+      "Is this affecting one machine, multiple machines on the same subnet, or machines across multiple subnets/sites?",
+      "Does 'ipconfig /all' show a correctly assigned IP address, subnet mask, and default gateway?",
+      "Can the machine ping its loopback address (127.0.0.1) — tests the TCP/IP stack itself?",
+      "Can the machine ping its own IP address — tests the NIC and local stack?",
+      "Can the machine ping the default gateway IP — tests Layer 2 and Layer 3 local connectivity?",
+      "Can the machine ping a remote IP (e.g., 8.8.8.8) without using DNS — tests routing beyond the gateway?",
+      "When did the issue start — Windows Update, NIC driver update, network hardware change, or IP reconfiguration?",
+      "Is this a physical machine, Hyper-V VM, VMware VM, or Azure/cloud instance? (affects NIC offload and MTU considerations)"
+    ],
+    "l2": [
+      "Are there custom TCP/IP registry parameters applied — HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters (TcpTimedWaitDelay, MaxUserPort, TCPWindowSize, TcpAckFrequency)?",
+      "Is Receive Side Scaling (RSS) enabled — are RSS queues properly distributed across CPU cores?",
+      "Is Large Send Offload v1/v2 (LSO) enabled — could NIC LSO be causing TCP segmentation issues?",
+      "Is TCP Chimney Offload enabled — deprecated in Windows Server 2012+ but may still appear in older systems?",
+      "Is IPv6 fully enabled, partially enabled (link-local only), or disabled? Is there a dual-stack issue where IPv6 is preferred but broken?",
+      "Are Windows Defender Firewall or IPsec policies blocking specific protocols or ports?",
+      "Is Path MTU Discovery (PMTUD) working — are ICMP Type 3 Code 4 (Fragmentation Needed / DF bit set) messages being filtered by a firewall or router in the path?",
+      "Are there VPN clients, network filter drivers, or third-party security agents installed that bind to the NIC? (Get-NetAdapterBinding)",
+      "What does 'netsh int tcp show global' report for AutoTuningLevel, Chimney, RSS, ECN, and InitialRTT?",
+      "Are there routing table issues — 'route print' — conflicting static routes, missing default route, or incorrect route metrics?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'ping 127.0.0.1' (loopback), 'ping <own IP>', 'ping <default gateway>', 'ping 8.8.8.8' — share results for each, noting RTT and packet loss.",
+      "Run 'tracert 8.8.8.8' or 'tracert <failing destination IP>' — share full hop-by-hop output.",
+      "Run 'ipconfig /all' — confirm IP, subnet mask, gateway, DNS, and DHCP lease details.",
+      "Run 'route print' — share complete IPv4 and IPv6 routing tables.",
+      "Run 'netstat -ano | findstr ESTABLISHED' — are expected connections present?",
+      "Run 'Get-NetFirewallProfile | Select Name,Enabled,DefaultInboundAction,DefaultOutboundAction'",
+      "Run 'pathping <destination>' — provides per-hop latency and packet loss percentages over 250 probes."
+    ],
+    "l2": [
+      "Run 'netsh int tcp show global' — share all TCP global settings: AutoTuningLevel, EcnCapability, Timestamps, InitialRTT, ScalingHeuristics.",
+      "Run 'Get-NetAdapterAdvancedProperty -Name \"<NIC>\" | Select DisplayName,DisplayValue' — share all offload, RSS, and interrupt moderation settings.",
+      "Capture network trace: 'netsh trace start capture=yes tracefile=C:\\tcpip_trace.etl maxsize=512 overwrite=yes' — reproduce — 'netsh trace stop'",
+      "Run 'Get-NetAdapterStatistics -Name \"<NIC>\" | Select Name,ReceivedUnicastPackets,OutboundDiscardedPackets,InboundDiscardedPackets,ReceivedPacketErrors,OutboundPacketErrors'",
+      "Run 'Get-NetRoute | Select DestinationPrefix,NextHop,RouteMetric,InterfaceAlias,Protocol,State'",
+      "Run 'netsh wfp show state file=C:\\wfp_state.xml' — analyze active Windows Filtering Platform filters.",
+      "Run 'Get-NetIPAddress | Select InterfaceAlias,AddressFamily,IPAddress,PrefixLength,AddressState,ValidLifetime,PreferredLifetime'",
+      "Run 'Get-NetAdapter | Select Name,Status,LinkSpeed,DriverVersion,DriverDate,InterfaceDescription,MtuSize'",
+      "Run 'Get-NetAdapterRss | Select Name,Enabled,NumberOfReceiveQueues,BaseProcessorNumber,MaxProcessors'",
+      "Test MTU: 'ping <destination> -f -l 1472' — if response is 'Packet needs to be fragmented but DF set', MTU is below 1500. Reduce size to find the path MTU."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Reset IP configuration and Winsock: 'netsh int ip reset C:\\ip_reset.log && netsh winsock reset' — restart the machine.",
+      "Temporarily disable Windows Firewall to isolate: 'Set-NetFirewallProfile -All -Enabled False' — test — re-enable immediately after: 'Set-NetFirewallProfile -All -Enabled True'",
+      "Reinstall the NIC driver from the OEM website — do not rely on Windows Update drivers for server NICs.",
+      "If default gateway is unreachable: check physical cable, switchport state, VLAN assignment, and switch MAC address table.",
+      "Test for MTU issue: 'ping 8.8.8.8 -f -l 1472' — if it fails but '-l 1200' works, an intermediate device is fragmenting or blocking large packets.",
+      "Check for multiple default routes with equal metric: 'route print | findstr /C:\"0.0.0.0\"' — remove conflicting routes."
+    ],
+    "l2": [
+      "If TCP throughput is poor: 'netsh int tcp set global autotuninglevel=normal' — disable experimental tuning if set; retest with iperf3.",
+      "If LSO is causing packet corruption or TCP retransmissions: 'Disable-NetAdapterLso -Name \"<NIC>\" -IPv4 -IPv6' — retest; monitor NIC stats for error reduction.",
+      "For MTU/PMTUD blackhole: set the interface MTU: 'netsh int ipv4 set subinterface \"<NIC>\" mtu=1400 store=persistent' — retest and adjust upward to find the actual path MTU.",
+      "For asymmetric routing (traffic exits one NIC, returns via another): add specific host routes — 'route add <remote IP> mask 255.255.255.255 <correct gateway> metric 1 if <ifIndex>'",
+      "For IPsec SA mismatches blocking traffic: 'Get-NetIPsecMainModeSA | Remove-NetIPsecMainModeSA' — flush stale SAs and allow re-negotiation.",
+      "For WFP callout driver blocking (third-party AV/security): 'netsh wfp show filters' — identify vendor GUID — disable callout driver via 'Disable-NetAdapterBinding -Name \"<NIC>\" -ComponentID <ID>' — test — re-enable.",
+      "For RSS queue imbalance or CPU affinity issues: 'Set-NetAdapterRss -Name \"<NIC>\" -NumberOfReceiveQueues 4 -BaseProcessorNumber 0' — spread load.",
+      "Analyze the netsh trace ETL: use 'pktmon etl2txt tcpip_trace.etl' or Microsoft Network Monitor — look for TCP RST (flag 0x04), retransmissions, or zero-window (Win=0) patterns."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Run 'ipconfig /all > C:\\ipconfig_all.txt'",
+      "Run 'route print > C:\\route_print.txt'",
+      "Run 'netstat -ano > C:\\netstat_all.txt'",
+      "Export System event log: 'wevtutil epl System C:\\System_Events.evtx'"
+    ],
+    "l2": [
+      "Capture network trace: 'netsh trace start capture=yes tracefile=C:\\tcpip_full.etl maxsize=512' — reproduce — stop.",
+      "Run 'Get-NetAdapterStatistics | Export-Csv C:\\nic_statistics.csv -NoTypeInformation'",
+      "Run 'netsh int tcp show global > C:\\tcp_global_settings.txt'",
+      "Run 'netsh wfp show state file=C:\\wfp_filters.xml'",
+      "Run 'Get-NetAdapterAdvancedProperty | Out-File C:\\nic_advanced_properties.txt'",
+      "Run 'Get-NetRoute | Export-Csv C:\\routing_table.csv -NoTypeInformation'",
+      "Collect kernel memory dump for tcpip.sys bugchecks: configure via 'sysdm.cpl > Advanced > Startup and Recovery > Kernel memory dump'."
+    ]
+  },
+  "playbooks": {
+    "no_connectivity": {
+      "title": "Complete loss of network connectivity",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "ping 127.0.0.1", "expect": "Reply received — confirms TCP/IP stack is functional" },
+            { "action": "ping <own IP>", "expect": "Reply received — confirms NIC and local stack are working" },
+            { "action": "ping <default gateway>", "expect": "Reply received — confirms Layer 2 and Layer 3 local connectivity" },
+            { "action": "ping 8.8.8.8", "expect": "Reply received — confirms routing beyond the gateway" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "ipconfig /all", "expect": "Valid IP, subnet mask, and default gateway assigned — if missing, DHCP or static config issue" },
+            { "action": "Get-NetAdapter | Select Name,Status,LinkSpeed", "expect": "Status: Up and LinkSpeed shows a value — if Disconnected, physical or driver issue" },
+            { "action": "Get-NetFirewallProfile | Select Name,Enabled,DefaultOutboundAction", "expect": "If DefaultOutboundAction: Block, firewall is dropping outbound traffic" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "netsh int ip reset C:\\ip_reset.log && netsh winsock reset", "expect": "TCP/IP stack and Winsock reset — requires reboot" },
+            { "action": "Set-NetFirewallProfile -All -Enabled False (test only — re-enable immediately after)", "expect": "If connectivity restored, firewall rule is the cause — identify and fix the specific rule" },
+            { "action": "Update NIC driver from OEM website", "expect": "Driver reinstalled — reboot and retest" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "ping 8.8.8.8", "expect": "Reply received with consistent RTT" },
+            { "action": "Test-NetConnection -ComputerName google.com -Port 443", "expect": "TcpTestSucceeded: True" }
+          ]
+        }
+      ]
+    },
+    "mtu_blackhole": {
+      "title": "MTU blackhole — large packets silently dropped",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "ping <destination> -f -l 1472", "expect": "If fails with 'Packet needs to be fragmented but DF set' — MTU blackhole confirmed" },
+            { "action": "ping <destination> -f -l 1200", "expect": "If this succeeds but 1472 fails — path MTU is between 1200 and 1472" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Binary search: ping -f -l 1400, 1300, 1450, 1460", "expect": "Find the exact largest packet size that succeeds — that is the path MTU minus 28 bytes" },
+            { "action": "tracert <destination>", "expect": "Identify which hop is dropping large packets — intermediate firewall or router blocking ICMP Type 3 Code 4" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "netsh int ipv4 set subinterface '<NIC>' mtu=1400 store=persistent", "expect": "Set interface MTU below the blackhole threshold — adjust upward incrementally to find optimal value" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "ping <destination> -f -l 1372 (MTU 1400 minus 28)", "expect": "Succeeds — large packets now flowing correctly" },
+            { "action": "Test application that was failing (e.g. file transfer, HTTPS)", "expect": "Application works correctly at full speed" }
+          ]
+        }
+      ]
+    }
+  }
+}

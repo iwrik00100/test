@@ -1,0 +1,15 @@
+{
+  "key": "directory_services",
+  "label": "Directory Services",
+  "icon": "🏛",
+  "description": "Active Directory DS, AD CS, AD FS, Azure AD, Kerberos, LDAP, Group Policy",
+  "technologies": [
+    { "key": "ad_ds", "label": "AD DS", "icon": "🏛" },
+    { "key": "ad_cs", "label": "AD CS (PKI)", "icon": "🔏" },
+    { "key": "ad_fs", "label": "AD FS", "icon": "🪪" },
+    { "key": "azure_ad", "label": "Azure AD / Entra ID", "icon": "☁️" },
+    { "key": "kerberos", "label": "Kerberos", "icon": "🎟" },
+    { "key": "ldap", "label": "LDAP", "icon": "📒" },
+    { "key": "group_policy", "label": "Group Policy", "icon": "📜" }
+  ]
+}

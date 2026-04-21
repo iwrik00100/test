@@ -1,5 +1,13 @@
-// ─── State ───────────────────────────────────────────────────────────────────
-const state = { tier: 'l1', qtype: 'scoping', activeTech: null, activePlaybook: null };
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  tier: 'l1',
+  qtype: 'scoping',
+  activeDomain: null,
+  activeTech: null,
+  activePlaybook: null,
+  domainIndex: {},   // cache: domainKey -> _index.json data
+  techData: {}       // cache: techKey -> technology.json data
+};
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 const LS = {
@@ -8,21 +16,60 @@ const LS = {
 };
 
 const SECTION_META = {
-  scoping:         { label: 'Scoping',         icon: '🔍', desc: 'Environment & impact questions' },
-  probing:         { label: 'Probing',          icon: '🧪', desc: 'Diagnostic commands & data requests' },
-  troubleshooting: { label: 'Troubleshooting',  icon: '🛠',  desc: 'Resolution steps' },
-  datacollection:  { label: 'Data Collection',  icon: '📦', desc: 'Logs, traces & exports' }
+  scoping:         { label: 'Scoping',        icon: '🔍', desc: 'Environment & impact questions' },
+  probing:         { label: 'Probing',         icon: '🧪', desc: 'Diagnostic commands & data requests' },
+  troubleshooting: { label: 'Troubleshooting', icon: '🛠',  desc: 'Resolution steps' },
+  datacollection:  { label: 'Data Collection', icon: '📦', desc: 'Logs, traces & exports' }
 };
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Restore persisted state
-  const savedTier  = LS.get('pcy_tier', 'l1');
-  const savedQtype = LS.get('pcy_qtype', 'scoping');
-  const savedTech  = LS.get('pcy_tech', null);
-  const savedGlass = LS.get('pcy_glass', false);
+// Domain definitions — drives the landing page cards
+const DOMAINS = [
+  { key: 'networking',          label: 'Networking',              icon: '🌐', description: 'DNS, DHCP, TCP/IP, SMB, DFS, NPS, 802.1x, VPN' },
+  { key: 'directory_services',  label: 'Directory Services',      icon: '🏛',  description: 'AD DS, AD CS, AD FS, Azure AD, Kerberos, LDAP, GPO' },
+  { key: 'performance',         label: 'Performance',             icon: '⚡', description: 'CPU, Memory, Disk I/O, Network throughput, WPA, ETW' },
+  { key: 'user_experience',     label: 'User Experience',         icon: '👤', description: 'Logon, Profiles, App Compat, AVD, RDS, Printing' },
+  { key: 'device_deployment',   label: 'Device & Deployment',     icon: '📦', description: 'Intune, SCCM, Autopilot, WSUS, WDS, Co-Management' },
+  { key: 'storage_ha',          label: 'Storage & High Availability', icon: '💾', description: 'Storage Spaces, Failover Cluster, Hyper-V, ReFS, iSCSI' },
+  { key: 'collaboration',       label: 'Collaboration',           icon: '🤝', description: 'Exchange Online, Teams, SharePoint, OneDrive, M365' }
+];
 
-  // Restore theme
+// ─── Base path for JSON files ─────────────────────────────────────────────────
+function _basePath() {
+  // Works on GitHub Pages (/test/) and locally (/)
+  const base = document.location.pathname.replace(/\/[^/]*$/, '');
+  return base.endsWith('/src') ? base.replace('/src', '') : base;
+}
+
+// ─── JSON Loader ──────────────────────────────────────────────────────────────
+async function _fetchJson(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Failed to load ${path} (HTTP ${res.status})`);
+  return res.json();
+}
+
+async function loadDomainIndex(domainKey) {
+  if (state.domainIndex[domainKey]) return state.domainIndex[domainKey];
+  const data = await _fetchJson(`${_basePath()}/domains/${domainKey}/_index.json`);
+  state.domainIndex[domainKey] = data;
+  return data;
+}
+
+async function loadTechData(domainKey, techKey) {
+  if (state.techData[techKey]) return state.techData[techKey];
+  const data = await _fetchJson(`${_basePath()}/domains/${domainKey}/${techKey}.json`);
+  state.techData[techKey] = data;
+  return data;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  const savedGlass    = LS.get('pcy_glass', false);
+  const savedTier     = LS.get('pcy_tier', 'l1');
+  const savedQtype    = LS.get('pcy_qtype', 'scoping');
+  const savedDomain   = LS.get('pcy_domain', null);
+  const savedTech     = LS.get('pcy_tech', null);
+  const savedProvider = LS.get('pcy_ai_provider', 'gemini');
+
   if (savedGlass) {
     _isGlass = true;
     document.body.classList.add('theme-glass');
@@ -30,38 +77,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('themeTooltip').textContent = 'Dark';
   }
 
-  renderTechSection();
+  renderDomainGrid();
 
-  // Restore tier
   state.tier = savedTier;
   document.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', b.dataset.tier === savedTier));
 
-  // Restore qtype
   state.qtype = savedQtype;
   document.querySelectorAll('.qtype-tab').forEach(b => b.classList.toggle('active', b.dataset.type === savedQtype));
   if (savedQtype === 'playbook') document.querySelector('.tier-toggle').style.display = 'none';
 
-  // Restore selected tech
-  if (savedTech && QUESTION_BANK[savedTech]) {
-    state.activeTech = savedTech;
-    document.querySelectorAll('.tech-btn').forEach(b => b.classList.toggle('active', b.dataset.tech === savedTech));
-    if (savedQtype === 'playbook') renderPlaybook();
-    else renderQuestions();
-  }
+  setAiProvider(savedProvider === 'pollinations' ? 'huggingface' : savedProvider);
 
-  // Restore case notes fields
+  // Restore case notes
   _cnFields.forEach(id => {
     const el = document.getElementById(id);
     const val = LS.get('pcy_cn_' + id, '');
-    if (el && val) { el.value = val; }
+    if (el && val) el.value = val;
   });
   updatePreview();
 
-  // Restore AI provider
-  const savedProvider = LS.get('pcy_ai_provider', 'gemini');
-  setAiProvider(savedProvider === 'pollinations' ? 'huggingface' : savedProvider);
-
-  // Restore AI chat history bubbles
+  // Restore chat history bubbles
   if (_chatHistory.length) {
     const output = document.getElementById('aiOutput');
     output.style.display = 'block';
@@ -74,46 +109,140 @@ document.addEventListener('DOMContentLoaded', () => {
         const mdDiv = document.createElement('div');
         mdDiv.className = 'ai-bubble-text';
         mdDiv.innerHTML = _renderMarkdown(m.content);
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'action-btn';
-        copyBtn.style.cssText = 'margin-top:8px;font-size:.68rem;';
-        copyBtn.textContent = '⧉ Copy';
-        copyBtn.onclick = () => navigator.clipboard.writeText(m.content).then(() => showToast('Copied!'));
         wrap.appendChild(mdDiv);
-        wrap.appendChild(copyBtn);
         output.appendChild(wrap);
       }
     });
     output.scrollTop = output.scrollHeight;
   }
+
+  // Restore domain + tech selection
+  if (savedDomain) {
+    await selectDomain(savedDomain, false);
+    if (savedTech) {
+      await selectTech(savedTech, false);
+      document.getElementById('questionTypeRow').style.display = '';
+      if (savedQtype === 'playbook') renderPlaybook();
+      else renderQuestions();
+    }
+  }
 });
 
-function renderTechSection() {
-  const container = document.getElementById('techSection');
-  container.innerHTML = '';
-  Object.entries(TECH_CATEGORIES).forEach(([cat, keys]) => {
-    const group = document.createElement('div');
-    group.className = 'tech-group';
-    group.innerHTML = `<div class="tech-group-label">${cat}</div>`;
-    const grid = document.createElement('div');
-    grid.className = 'tech-grid';
-    keys.forEach(key => {
-      const tech = QUESTION_BANK[key];
-      if (!tech) return;
-      const btn = document.createElement('button');
-      btn.className = 'tech-btn';
-      btn.dataset.tech = key;
-      btn.innerHTML = `<span class="tech-icon">${tech.icon}</span><span class="tech-label">${tech.label}</span>`;
-      btn.onclick = () => selectTech(key);
-      grid.appendChild(btn);
-    });
-    group.appendChild(grid);
-    container.appendChild(group);
+// ─── Domain Grid ──────────────────────────────────────────────────────────────
+function renderDomainGrid() {
+  const grid = document.getElementById('domainGrid');
+  grid.innerHTML = '';
+  DOMAINS.forEach(d => {
+    const card = document.createElement('button');
+    card.className = 'domain-card';
+    card.dataset.domain = d.key;
+    card.innerHTML = `
+      <span class="domain-card-icon">${d.icon}</span>
+      <span class="domain-card-label">${d.label}</span>
+      <span class="domain-card-desc">${d.description}</span>`;
+    card.onclick = () => selectDomain(d.key);
+    grid.appendChild(card);
   });
 }
 
+// ─── Domain Selection ─────────────────────────────────────────────────────────
+async function selectDomain(domainKey, persist = true) {
+  state.activeDomain = domainKey;
+  state.activeTech   = null;
+  state.activePlaybook = null;
+  if (persist) LS.set('pcy_domain', domainKey);
 
-// ─── Tier Selection ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.domain-card').forEach(c =>
+    c.classList.toggle('active', c.dataset.domain === domainKey));
+
+  _showLoading(true);
+  try {
+    const index = await loadDomainIndex(domainKey);
+    renderTechGrid(index);
+    const domain = DOMAINS.find(d => d.key === domainKey);
+    document.getElementById('domainBreadcrumb').innerHTML =
+      `<span class="breadcrumb-icon">${domain?.icon}</span>
+       <span class="breadcrumb-label">${domain?.label}</span>`;
+    document.getElementById('techSection').style.display = '';
+    document.getElementById('questionTypeRow').style.display = 'none';
+    document.getElementById('questionsOutput').style.display = 'none';
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('emptyState').querySelector('.empty-title').textContent = 'Select a Technology';
+    document.getElementById('emptyState').querySelector('.empty-desc').textContent = 'Choose a technology from the list above';
+  } catch (e) {
+    showToast('Failed to load domain index');
+    console.error(e);
+  } finally {
+    _showLoading(false);
+  }
+}
+
+function backToDomains() {
+  state.activeDomain   = null;
+  state.activeTech     = null;
+  state.activePlaybook = null;
+  LS.set('pcy_domain', null);
+  LS.set('pcy_tech', null);
+  document.getElementById('techSection').style.display = 'none';
+  document.getElementById('questionTypeRow').style.display = 'none';
+  document.getElementById('questionsOutput').style.display = 'none';
+  document.getElementById('emptyState').style.display = '';
+  document.getElementById('emptyState').querySelector('.empty-title').textContent = 'Select a Practice Area';
+  document.getElementById('emptyState').querySelector('.empty-desc').textContent = 'Choose one of the 7 practice areas above to get started';
+  document.querySelectorAll('.domain-card').forEach(c => c.classList.remove('active'));
+}
+
+// ─── Tech Grid ────────────────────────────────────────────────────────────────
+function renderTechGrid(index) {
+  const grid = document.getElementById('techGrid');
+  grid.innerHTML = '';
+  const group = document.createElement('div');
+  group.className = 'tech-group';
+  const techGrid = document.createElement('div');
+  techGrid.className = 'tech-grid';
+  index.technologies.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tech-btn';
+    btn.dataset.tech = t.key;
+    btn.innerHTML = `<span class="tech-icon">${t.icon}</span><span class="tech-label">${t.label}</span>`;
+    btn.onclick = () => selectTech(t.key);
+    techGrid.appendChild(btn);
+  });
+  group.appendChild(techGrid);
+  grid.appendChild(group);
+}
+
+// ─── Tech Selection ───────────────────────────────────────────────────────────
+async function selectTech(techKey, persist = true) {
+  state.activeTech     = techKey;
+  state.activePlaybook = null;
+  _checkedKeys.clear();
+  _pbCheckedKeys.clear();
+  if (persist) LS.set('pcy_tech', techKey);
+
+  document.querySelectorAll('.tech-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tech === techKey));
+
+  _showLoading(true);
+  try {
+    await loadTechData(state.activeDomain, techKey);
+    document.getElementById('questionTypeRow').style.display = '';
+    document.querySelector('.tier-toggle').style.display = state.qtype === 'playbook' ? 'none' : '';
+    if (state.qtype === 'playbook') renderPlaybook();
+    else renderQuestions();
+  } catch (e) {
+    showToast('Failed to load technology data');
+    console.error(e);
+  } finally {
+    _showLoading(false);
+  }
+}
+
+function _showLoading(show) {
+  document.getElementById('loadingState').style.display = show ? 'flex' : 'none';
+}
+
+// ─── Tier & Qtype ─────────────────────────────────────────────────────────────
 function setTier(tier) {
   state.tier = tier;
   LS.set('pcy_tier', tier);
@@ -121,10 +250,9 @@ function setTier(tier) {
   if (state.activeTech) renderQuestions();
 }
 
-// ─── Question Type ────────────────────────────────────────────────────────────
 function setQtype(type) {
-  if (state.qtype !== 'playbook' && type === 'playbook') state.activePlaybook = null;
   if (state.qtype === 'playbook' && type !== 'playbook') state.activePlaybook = null;
+  if (state.qtype !== 'playbook' && type === 'playbook') state.activePlaybook = null;
   state.qtype = type;
   LS.set('pcy_qtype', type);
   document.querySelectorAll('.qtype-tab').forEach(b => b.classList.toggle('active', b.dataset.type === type));
@@ -135,27 +263,15 @@ function setQtype(type) {
   }
 }
 
-// ─── Tech Selection ───────────────────────────────────────────────────────────
-function selectTech(techKey) {
-  state.activeTech = techKey;
-  state.activePlaybook = null;
-  _checkedKeys.clear();
-  _pbCheckedKeys.clear();
-  LS.set('pcy_tech', techKey);
-  document.querySelectorAll('.tech-btn').forEach(b => b.classList.toggle('active', b.dataset.tech === techKey));
-  if (state.qtype === 'playbook') renderPlaybook();
-  else renderQuestions();
-}
-
 // ─── Render Questions ─────────────────────────────────────────────────────────
 function renderQuestions() {
-  const tech = QUESTION_BANK[state.activeTech];
+  const tech = state.techData[state.activeTech];
   if (!tech) return;
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('questionsOutput').style.display = 'block';
 
-  const tierLabel = { l1: 'L1 Support', l2: 'L2 Support', both: 'L1 + L2' }[state.tier];
+  const tierLabel  = { l1: 'L1 Support', l2: 'L2 Support', both: 'L1 + L2' }[state.tier];
   const qtypeLabel = state.qtype === 'all' ? 'All Sections' : (SECTION_META[state.qtype]?.label || state.qtype);
 
   document.getElementById('outputMeta').innerHTML =
@@ -166,21 +282,23 @@ function renderQuestions() {
   const list = document.getElementById('questionsList');
   list.innerHTML = '';
 
-  // Clear search on re-render
   const si = document.getElementById('searchInput');
-  if (si) { si.value = ''; }
+  if (si) si.value = '';
   const sc = document.getElementById('searchCount');
   if (sc) sc.textContent = '';
   const sb = document.getElementById('searchClear');
   if (sb) sb.style.display = 'none';
+
   const tiers  = state.tier === 'both' ? ['l1','l2'] : [state.tier];
-  const qtypes = state.qtype === 'all' ? ['scoping','probing','troubleshooting','datacollection'] : [state.qtype];
+  const qtypes = state.qtype === 'all'
+    ? ['scoping','probing','troubleshooting','datacollection']
+    : [state.qtype];
 
   tiers.forEach(tier => {
     qtypes.forEach(qtype => {
       const items = tech[qtype]?.[tier];
       if (!items || !items.length) return;
-      const meta = SECTION_META[qtype] || {};
+      const meta    = SECTION_META[qtype] || {};
       const section = document.createElement('div');
       section.className = 'question-section';
       section.innerHTML = `
@@ -195,13 +313,12 @@ function renderQuestions() {
         const item = document.createElement('div');
         item.className = 'question-item';
 
-        // Checkbox
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
+        const cb  = document.createElement('input');
+        cb.type   = 'checkbox';
         cb.className = 'q-check';
-        cb.id = `chk-${tier}-${qtype}-${i}`;
+        cb.id     = `chk-${tier}-${qtype}-${i}`;
         cb.setAttribute('aria-label', 'Mark question as done');
-        const ck = _ckKey(tier, qtype, i);
+        const ck  = _ckKey(tier, qtype, i);
         if (_checkedKeys.has(ck)) { cb.checked = true; item.classList.add('checked'); }
         cb.addEventListener('change', function() {
           item.classList.toggle('checked', this.checked);
@@ -209,21 +326,18 @@ function renderQuestions() {
           updateProgress();
         });
 
-        // Number
         const num = document.createElement('span');
-        num.className = 'q-num';
-        num.textContent = String(i+1).padStart(2,'0');
+        num.className   = 'q-num';
+        num.textContent = String(i + 1).padStart(2, '0');
 
-        // Question text
         const text = document.createElement('span');
-        text.className = 'q-text';
-        text.dataset.raw = q;
-        text.textContent = q;
+        text.className    = 'q-text';
+        text.dataset.raw  = q;
+        text.textContent  = q;
 
-        // Copy button
         const copyBtn = document.createElement('button');
-        copyBtn.className = 'q-copy';
-        copyBtn.title = 'Copy';
+        copyBtn.className   = 'q-copy';
+        copyBtn.title       = 'Copy';
         copyBtn.textContent = '⧉';
         copyBtn.addEventListener('click', () => copyQuestion(q));
 
@@ -239,9 +353,9 @@ function renderQuestions() {
   updateProgress();
 }
 
-// ─── Playbook Render ─────────────────────────────────────────────────────────
+// ─── Playbook Render ──────────────────────────────────────────────────────────
 function renderPlaybook() {
-  const tech = QUESTION_BANK[state.activeTech];
+  const tech = state.techData[state.activeTech];
   if (!tech) return;
 
   document.getElementById('emptyState').style.display = 'none';
@@ -261,7 +375,6 @@ function renderPlaybook() {
     return;
   }
 
-  // If no symptom selected yet, show symptom picker
   if (!state.activePlaybook) {
     renderSymptomPicker(list, playbooks);
     updateProgress();
@@ -271,29 +384,34 @@ function renderPlaybook() {
   const pb = playbooks[state.activePlaybook];
   if (!pb) { state.activePlaybook = null; renderPlaybook(); return; }
 
-  // Back button
+  // Back button + title
   const back = document.createElement('div');
   back.className = 'pb-back';
-  back.innerHTML = `<button class="action-btn" onclick="state.activePlaybook=null;renderPlaybook()">← All Playbooks</button>
-    <span class="pb-title">${pb.title}</span>
-    <span class="pb-severity pb-sev-${pb.severity}">${pb.severity.toUpperCase()}</span>
-    <button class="action-btn" onclick="copyPlaybook()" style="margin-left:auto">📋 Copy Playbook</button>`;
+  back.innerHTML =
+    `<button class="action-btn" onclick="state.activePlaybook=null;renderPlaybook()">← All Playbooks</button>
+     <span class="pb-title">${pb.title}</span>
+     <span class="pb-severity pb-sev-${pb.severity}">${pb.severity.toUpperCase()}</span>
+     <button class="action-btn" onclick="copyPlaybook()" style="margin-left:auto">📋 Copy Playbook</button>`;
   list.appendChild(back);
 
-  // Phases
   pb.phases.forEach((phase, pi) => {
     const phaseEl = document.createElement('div');
     phaseEl.className = 'pb-phase';
-    phaseEl.innerHTML = `<div class="pb-phase-header"><span class="pb-phase-icon">${phase.icon}</span><span class="pb-phase-name">${phase.name}</span><span class="pb-phase-count">${phase.steps.length} step${phase.steps.length !== 1 ? 's' : ''}</span></div>`;
+    phaseEl.innerHTML =
+      `<div class="pb-phase-header">
+         <span class="pb-phase-icon">${phase.icon}</span>
+         <span class="pb-phase-name">${phase.name}</span>
+         <span class="pb-phase-count">${phase.steps.length} step${phase.steps.length !== 1 ? 's' : ''}</span>
+       </div>`;
 
     phase.steps.forEach((step, si) => {
       const item = document.createElement('div');
       item.className = 'question-item pb-step';
 
       const cb = document.createElement('input');
-      cb.type = 'checkbox';
+      cb.type  = 'checkbox';
       cb.className = 'q-check';
-      cb.id = `pbchk-${pi}-${si}`;
+      cb.id    = `pbchk-${pi}-${si}`;
       cb.setAttribute('aria-label', 'Mark step done');
       const pbck = _pbCkKey(pi, si);
       if (_pbCheckedKeys.has(pbck)) { cb.checked = true; item.classList.add('checked'); }
@@ -304,7 +422,7 @@ function renderPlaybook() {
       });
 
       const num = document.createElement('span');
-      num.className = 'q-num';
+      num.className   = 'q-num';
       num.textContent = String(si + 1).padStart(2, '0');
 
       const body = document.createElement('div');
@@ -314,8 +432,8 @@ function renderPlaybook() {
         `<span class="pb-expect">Expected: ${escapeHtml(step.expect)}</span>`;
 
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'q-copy';
-      copyBtn.title = 'Copy command';
+      copyBtn.className   = 'q-copy';
+      copyBtn.title       = 'Copy command';
       copyBtn.textContent = '⧉';
       copyBtn.addEventListener('click', () => copyQuestion(step.action));
 
@@ -325,10 +443,8 @@ function renderPlaybook() {
       item.appendChild(copyBtn);
       phaseEl.appendChild(item);
     });
-
     list.appendChild(phaseEl);
   });
-
   updateProgress();
 }
 
@@ -341,7 +457,7 @@ function renderSymptomPicker(container, playbooks) {
     card.innerHTML =
       `<span class="pb-sev-dot pb-sev-${pb.severity}"></span>` +
       `<span class="pb-symptom-title">${escapeHtml(pb.title)}</span>` +
-      `<span class="pb-symptom-meta">${pb.phases.length} phases · ${pb.phases.reduce((a,p)=>a+p.steps.length,0)} steps</span>`;
+      `<span class="pb-symptom-meta">${pb.phases.length} phases · ${pb.phases.reduce((a, p) => a + p.steps.length, 0)} steps</span>`;
     card.addEventListener('click', () => {
       state.activePlaybook = slug;
       renderPlaybook();
@@ -352,7 +468,7 @@ function renderSymptomPicker(container, playbooks) {
 }
 
 function copyPlaybook() {
-  const tech = QUESTION_BANK[state.activeTech];
+  const tech = state.techData[state.activeTech];
   const pb   = tech?.playbooks?.[state.activePlaybook];
   if (!pb) return;
 
@@ -372,21 +488,15 @@ function copyPlaybook() {
     });
     out += '\n';
   });
-
   navigator.clipboard.writeText(out).then(() => showToast('Playbook copied!'));
 }
 
-// ─── Checkboxes & Progress ─────────────────────────────────────────────────────────
-const _checkedKeys = new Set();
+// ─── Checkboxes & Progress ────────────────────────────────────────────────────
+const _checkedKeys   = new Set();
 const _pbCheckedKeys = new Set();
 
-function _ckKey(tier, qtype, i) { return `${state.activeTech}_${tier}_${qtype}_${i}`; }
-function _pbCkKey(pi, si) { return `${state.activeTech}_${state.activePlaybook}_${pi}_${si}`; }
-
-function onCheckChange(cb) {
-  cb.closest('.question-item').classList.toggle('checked', cb.checked);
-  updateProgress();
-}
+function _ckKey(tier, qtype, i)  { return `${state.activeTech}_${tier}_${qtype}_${i}`; }
+function _pbCkKey(pi, si)        { return `${state.activeTech}_${state.activePlaybook}_${pi}_${si}`; }
 
 function updateProgress() {
   const all     = document.querySelectorAll('#questionsList .q-check');
@@ -397,7 +507,7 @@ function updateProgress() {
   if (!row) return;
   row.style.display = total > 0 ? 'flex' : 'none';
   document.getElementById('progressLabel').textContent = `${done} / ${total} checked`;
-  document.getElementById('progressFill').style.width  = total > 0 ? `${(done/total)*100}%` : '0%';
+  document.getElementById('progressFill').style.width  = total > 0 ? `${(done / total) * 100}%` : '0%';
 }
 
 function clearChecked() {
@@ -410,9 +520,9 @@ function clearChecked() {
   updateProgress();
 }
 
-// ─── Search / Filter ────────────────────────────────────────────────────────────
+// ─── Search / Filter ──────────────────────────────────────────────────────────
 function filterQuestions() {
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const q        = document.getElementById('searchInput').value.trim().toLowerCase();
   const clearBtn = document.getElementById('searchClear');
   const countEl  = document.getElementById('searchCount');
   clearBtn.style.display = q ? 'inline' : 'none';
@@ -422,8 +532,9 @@ function filterQuestions() {
 
   items.forEach(item => {
     const textEl = item.querySelector('.q-text');
-    const raw    = textEl.dataset.raw || textEl.textContent;
-    textEl.dataset.raw = raw; // cache original
+    if (!textEl) return;
+    const raw = textEl.dataset.raw || textEl.textContent;
+    textEl.dataset.raw = raw;
 
     if (!q) {
       item.classList.remove('q-hidden');
@@ -437,14 +548,12 @@ function filterQuestions() {
       item.classList.add('q-hidden');
     } else {
       item.classList.remove('q-hidden');
-      // Highlight all matches (case-insensitive)
       const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       textEl.innerHTML = escapeHtml(raw).replace(regex, m => `<mark class="q-highlight">${m}</mark>`);
       visible++;
     }
   });
 
-  // Hide empty sections
   document.querySelectorAll('#questionsList .question-section').forEach(sec => {
     const anyVisible = [...sec.querySelectorAll('.question-item')].some(i => !i.classList.contains('q-hidden'));
     sec.style.display = anyVisible ? '' : 'none';
@@ -459,11 +568,23 @@ function clearSearch() {
   document.getElementById('searchInput').focus();
 }
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ─── Copy & Export ─────────────────────────────────────────────────────────────
+function escapeAttr(str) {
+  return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+
+function showToast(msg = 'Copied!') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─── Copy & Export ────────────────────────────────────────────────────────────
 function copyQuestion(text) {
   navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
 }
@@ -485,11 +606,13 @@ document.addEventListener('click', e => {
 });
 
 function _buildExportData() {
-  const tech      = QUESTION_BANK[state.activeTech];
+  const tech      = state.techData[state.activeTech];
   const tierLabel = { l1:'L1', l2:'L2', both:'L1+L2' }[state.tier];
   const secLabel  = state.qtype === 'all' ? 'All' : (SECTION_META[state.qtype]?.label || state.qtype);
   const tiers     = state.tier === 'both' ? ['l1','l2'] : [state.tier];
-  const qtypes    = state.qtype === 'all' ? ['scoping','probing','troubleshooting','datacollection'] : [state.qtype];
+  const qtypes    = state.qtype === 'all'
+    ? ['scoping','probing','troubleshooting','datacollection']
+    : [state.qtype];
   const sections  = [];
   tiers.forEach(tier => {
     qtypes.forEach(qtype => {
@@ -503,7 +626,7 @@ function _buildExportData() {
 
 function _download(content, filename, mime) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.href  = URL.createObjectURL(new Blob([content], { type: mime }));
   a.download = filename;
   a.click();
   document.getElementById('exportMenu')?.classList.remove('open');
@@ -511,13 +634,13 @@ function _download(content, filename, mime) {
 
 function exportTxt() {
   const { tech, tierLabel, secLabel, sections } = _buildExportData();
-  let txt = `NetOps Cockpit — Windows Networking Incident Command\nTechnology : ${tech.label}\nTier       : ${tierLabel}\nSection    : ${secLabel}\nGenerated  : ${new Date().toLocaleString()}\n${'='.repeat(64)}\n\n`;
+  let txt = `NetOps Cockpit — Incident Command\nTechnology : ${tech.label}\nTier       : ${tierLabel}\nSection    : ${secLabel}\nGenerated  : ${new Date().toLocaleString()}\n${'='.repeat(64)}\n\n`;
   sections.forEach(({ tier, label, items }) => {
     txt += `[${tier.toUpperCase()} — ${label.toUpperCase()}]\n${'-'.repeat(48)}\n`;
     items.forEach((q, i) => { txt += `${String(i+1).padStart(2,'0')}. ${q}\n`; });
     txt += '\n';
   });
-  _download(txt, `pcy_${state.activeTech}_${state.tier}_${state.qtype}.txt`, 'text/plain');
+  _download(txt, `netops_${state.activeTech}_${state.tier}_${state.qtype}.txt`, 'text/plain');
 }
 
 function exportMd() {
@@ -528,17 +651,18 @@ function exportMd() {
     items.forEach((q, i) => { md += `${i+1}. ${q}\n`; });
     md += '\n';
   });
-  _download(md, `pcy_${state.activeTech}_${state.tier}_${state.qtype}.md`, 'text/markdown');
+  _download(md, `netops_${state.activeTech}_${state.tier}_${state.qtype}.md`, 'text/markdown');
 }
 
 function exportHtml() {
   const { tech, tierLabel, secLabel, sections } = _buildExportData();
   const rows = sections.map(({ tier, label, items }) => {
-    const lis = items.map((q,i) => `<li><span class="num">${String(i+1).padStart(2,'0')}</span>${escapeHtml(q)}</li>`).join('');
+    const lis = items.map((q,i) =>
+      `<li><span class="num">${String(i+1).padStart(2,'0')}</span>${escapeHtml(q)}</li>`).join('');
     return `<div class="section"><div class="sec-head"><span class="tier ${tier}">${tier.toUpperCase()}</span><span class="sec-title">${label}</span></div><ol>${lis}</ol></div>`;
   }).join('');
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NetOps Cockpit — ${escapeHtml(tech.label)}</title><style>body{font-family:'Segoe UI',sans-serif;background:#f4f6fa;color:#1a2535;margin:0;padding:2rem}h1{font-size:1.4rem;margin-bottom:.25rem}p.meta{font-size:.8rem;color:#5a7090;margin-bottom:1.5rem}.section{background:#fff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:1rem;overflow:hidden}.sec-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#eef3fb;border-bottom:1px solid #dde5f0}.tier{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.08em}.tier.l1{background:#dcfce7;color:#16a34a}.tier.l2{background:#fef3c7;color:#d97706}.sec-title{font-weight:700;font-size:.88rem}ol{margin:0;padding:0;list-style:none}li{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #eef3fb;font-size:.85rem;line-height:1.6}li:last-child{border-bottom:none}.num{color:#94a3b8;font-weight:700;min-width:24px;flex-shrink:0}@media print{body{background:#fff}.section{break-inside:avoid}}</style></head><body><h1>${escapeHtml(tech.icon)} ${escapeHtml(tech.label)} — NetOps Cockpit</h1><p class="meta">Tier: ${tierLabel} | Section: ${secLabel} | Generated: ${new Date().toLocaleString()}</p>${rows}</body></html>`;
-  _download(html, `pcy_${state.activeTech}_${state.tier}_${state.qtype}.html`, 'text/html');
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NetOps Cockpit — ${escapeHtml(tech.label)}</title><style>body{font-family:'Segoe UI',sans-serif;background:#f4f6fa;color:#1a2535;margin:0;padding:2rem}h1{font-size:1.4rem;margin-bottom:.25rem}p.meta{font-size:.8rem;color:#5a7090;margin-bottom:1.5rem}.section{background:#fff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:1rem;overflow:hidden}.sec-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#eef3fb;border-bottom:1px solid #dde5f0}.tier{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:4px}.tier.l1{background:#dcfce7;color:#16a34a}.tier.l2{background:#fef3c7;color:#d97706}.sec-title{font-weight:700;font-size:.88rem}ol{margin:0;padding:0;list-style:none}li{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #eef3fb;font-size:.85rem;line-height:1.6}li:last-child{border-bottom:none}.num{color:#94a3b8;font-weight:700;min-width:24px;flex-shrink:0}@media print{body{background:#fff}.section{break-inside:avoid}}</style></head><body><h1>${escapeHtml(tech.icon)} ${escapeHtml(tech.label)} — NetOps Cockpit</h1><p class="meta">Tier: ${tierLabel} | Section: ${secLabel} | Generated: ${new Date().toLocaleString()}</p>${rows}</body></html>`;
+  _download(html, `netops_${state.activeTech}_${state.tier}_${state.qtype}.html`, 'text/html');
 }
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────
@@ -554,9 +678,9 @@ function setAiProvider(provider) {
   LS.set('pcy_ai_provider', provider);
   document.getElementById('providerGemini').classList.toggle('active', provider === 'gemini');
   document.getElementById('providerHuggingFace').classList.toggle('active', provider === 'huggingface');
-  const status = document.getElementById('aiProviderStatus');
+  const status       = document.getElementById('aiProviderStatus');
   const geminiKeyRow = document.getElementById('geminiKeyRow');
-  const hfKeyRow = document.getElementById('hfKeyRow');
+  const hfKeyRow     = document.getElementById('hfKeyRow');
   if (provider === 'gemini') {
     status.textContent = '⚡ Google Gemini 2.5 Flash';
     status.style.color = 'var(--l1)';
@@ -578,6 +702,20 @@ function setAiProvider(provider) {
   }
 }
 
+function saveApiKey(provider) {
+  if (provider === 'gemini') {
+    const key = document.getElementById('geminiKeyInput')?.value.trim();
+    if (!key) { showToast('Enter a key first.'); return; }
+    LS.set('pcy_gemini_key', key);
+    showToast('Gemini key saved!');
+  } else {
+    const key = document.getElementById('hfKeyInput')?.value.trim();
+    if (!key) { showToast('Enter a key first.'); return; }
+    LS.set('pcy_hf_key', key);
+    showToast('HuggingFace key saved!');
+  }
+}
+
 async function generateAiQuestions() {
   const input   = document.getElementById('aiInput');
   const query   = input.value.trim();
@@ -594,12 +732,11 @@ async function generateAiQuestions() {
   input.value = '';
   output.style.display = 'block';
 
-  btn.disabled = true;
+  btn.disabled          = true;
   btnText.style.display = 'none';
   spinner.style.display = 'inline-block';
 
-  // Create assistant bubble
-  const wrap = document.createElement('div');
+  const wrap  = document.createElement('div');
   wrap.className = 'ai-bubble ai-bubble-assistant';
   const mdDiv = document.createElement('div');
   mdDiv.className = 'ai-bubble-text';
@@ -611,73 +748,171 @@ async function generateAiQuestions() {
     const fullReply = await _invokeAnalysisStream(mdDiv, output);
     _chatHistory.push({ role: 'assistant', content: fullReply });
     _persistChat();
-
-    // Add copy button after streaming completes
     const copyBtn = document.createElement('button');
-    copyBtn.className = 'action-btn';
-    copyBtn.style.cssText = 'margin-top:8px;font-size:.68rem;';
-    copyBtn.textContent = '⧉ Copy';
+    copyBtn.className       = 'action-btn';
+    copyBtn.style.cssText   = 'margin-top:8px;font-size:.68rem;';
+    copyBtn.textContent     = '⧉ Copy';
     copyBtn.onclick = () => navigator.clipboard.writeText(fullReply).then(() => showToast('Copied!'));
     wrap.appendChild(copyBtn);
   } catch (err) {
     console.error('AI fetch error:', err);
-    mdDiv.textContent = `⚠ ${err.name}: ${err.message}`;
-    wrap.className = 'ai-bubble ai-bubble-error';
+    mdDiv.textContent  = `⚠ ${err.name}: ${err.message}`;
+    wrap.className     = 'ai-bubble ai-bubble-error';
   } finally {
-    btn.disabled = false;
+    btn.disabled          = false;
     btnText.style.display = 'inline';
     spinner.style.display = 'none';
-    output.scrollTop = output.scrollHeight;
+    output.scrollTop      = output.scrollHeight;
   }
 }
 
-const _SYSTEM_PROMPT = `You are a senior Windows Networking incident response engineer specializing in the PCY practice area: DNS, DHCP, TCP/IP, SMB, DFS, NPS/RADIUS, 802.1x, VPN (SSTP/IKEv2/L2TP/AOVPN).
+function clearAiChat() {
+  _chatHistory.length = 0;
+  LS.set('pcy_chat_history', []);
+  const output = document.getElementById('aiOutput');
+  output.innerHTML     = '';
+  output.style.display = 'none';
+  showToast('Chat cleared');
+}
 
-The engineer already has access to standard scoping, probing, troubleshooting, and data collection playbooks for common scenarios. Your role is to go BEYOND those — provide deep expert analysis, root cause reasoning, edge cases, known bugs, hotfixes, registry tweaks, advanced PowerShell, packet capture interpretation, and anything else that a senior escalation engineer would know that is NOT covered by a standard question checklist.
+function _appendUserBubble(container, text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'ai-bubble ai-bubble-user';
+  const p = document.createElement('div');
+  p.className   = 'ai-bubble-text';
+  p.textContent = text;
+  wrap.appendChild(p);
+  container.appendChild(wrap);
+}
+
+// ─── System Prompt ────────────────────────────────────────────────────────────
+const _SYSTEM_PROMPT = `You are a senior Microsoft Unified Support incident response engineer covering all PCY practice areas: Networking (DNS, DHCP, TCP/IP, SMB, DFS, NPS/RADIUS, 802.1x, VPN), Directory Services (AD DS, AD CS, AD FS, Azure AD, Kerberos, LDAP, GPO), Performance (CPU, Memory, Disk I/O, WPA, ETW), User Experience (Logon, Profiles, App Compat, AVD, RDS), Device & Deployment (Intune, SCCM, Autopilot, WSUS), Storage & HA (Storage Spaces, Failover Cluster, Hyper-V, ReFS), and Collaboration (Exchange Online, Teams, SharePoint, OneDrive).
+
+The engineer already has access to standard scoping, probing, troubleshooting, and data collection playbooks. Your role is to go BEYOND those — provide deep expert analysis, root cause reasoning, edge cases, known bugs, hotfixes, registry tweaks, advanced PowerShell, packet capture interpretation, and anything a senior escalation engineer would know that is NOT covered by a standard question checklist.
 
 Answer conversationally and directly. Be specific — reference exact Event IDs, KB articles, registry paths, PowerShell syntax, and command output interpretation where relevant. Do not repeat generic checklist items the engineer already knows.`;
 
-// ─── Minimal Markdown renderer ───────────────────────────────────────────────
-function _renderMarkdown(raw) {
-  // Escape HTML in a way that preserves our own tags added below
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function _buildSystemPrompt() {
+  let ctx = '';
+  if (state.activeTech && state.techData[state.activeTech]) {
+    const tech      = state.techData[state.activeTech];
+    const tierLabel = { l1: 'L1', l2: 'L2', both: 'L1 + L2' }[state.tier] || state.tier;
+    const domain    = DOMAINS.find(d => d.key === state.activeDomain);
+    ctx = `\n\nCURRENT INCIDENT CONTEXT: The engineer is working on a ${tech.label} case (domain: ${domain?.label || state.activeDomain}) at ${tierLabel} tier. Tailor your response specifically to ${tech.label} — prioritise ${tech.label}-specific Event IDs, commands, registry paths, and known issues.`;
+  }
+  return _SYSTEM_PROMPT + ctx;
+}
 
-  // Split into fenced code blocks vs. everything else
-  const parts = raw.split(/(```[\s\S]*?```)/g);
-  let html = '';
+async function _invokeAnalysisStream(mdDiv, output) {
+  if (_aiProvider === 'huggingface') return await _invokeViaHuggingFace(mdDiv, output);
+  return await _invokeViaGemini(mdDiv, output);
+}
+
+async function _invokeViaGemini(mdDiv, output) {
+  const GEMINI_KEY = LS.get('pcy_gemini_key', '');
+  if (!GEMINI_KEY) {
+    mdDiv.textContent = '⚠ No Gemini API key set. Enter your key above and click 💾 Save Key.';
+    return '';
+  }
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
+  const contents = [
+    { role: 'user',  parts: [{ text: _buildSystemPrompt() }] },
+    { role: 'model', parts: [{ text: 'Understood. Ready to assist as a senior incident response engineer.' }] },
+    ..._chatHistory.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
+  ];
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 120000);
+  let res;
+  try {
+    res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents }),
+      signal: controller.signal
+    });
+  } finally { clearTimeout(timeout); }
+  if (!res.ok) { const err = await res.text(); throw new Error(`Gemini HTTP ${res.status}: ${err.slice(0,200)}`); }
+  return await _readStream(res, mdDiv, output, chunk => chunk.candidates?.[0]?.content?.parts?.[0]?.text || '');
+}
+
+async function _invokeViaHuggingFace(mdDiv, output) {
+  const HF_KEY = LS.get('pcy_hf_key', '');
+  if (!HF_KEY) {
+    mdDiv.textContent = '⚠ No HuggingFace API key set. Enter your key above and click 💾 Save Key.';
+    return '';
+  }
+  const HF_URL  = 'https://router.huggingface.co/v1/chat/completions';
+  const messages = [{ role: 'system', content: _buildSystemPrompt() }, ..._chatHistory];
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 120000);
+  let res;
+  try {
+    res = await fetch(HF_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${HF_KEY}` },
+      body: JSON.stringify({ model: 'Qwen/Qwen2.5-72B-Instruct', messages, max_tokens: 2048, stream: true }),
+      signal: controller.signal
+    });
+  } finally { clearTimeout(timeout); }
+  if (!res.ok) { const err = await res.text(); throw new Error(`HuggingFace HTTP ${res.status}: ${err.slice(0,200)}`); }
+  return await _readStream(res, mdDiv, output, chunk => chunk.choices?.[0]?.delta?.content || '');
+}
+
+async function _readStream(res, mdDiv, output, extractor) {
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText  = '';
+  let buffer    = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const json = line.slice(6).trim();
+      if (!json || json === '[DONE]') continue;
+      try {
+        const piece = extractor(JSON.parse(json));
+        if (piece) {
+          fullText += piece;
+          mdDiv.innerHTML  = _renderMarkdown(fullText);
+          output.scrollTop = output.scrollHeight;
+        }
+      } catch { /* malformed chunk — skip */ }
+    }
+  }
+  return fullText.trim() || 'No response received.';
+}
+
+// ─── Markdown renderer ────────────────────────────────────────────────────────
+function _renderMarkdown(raw) {
+  const esc    = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const parts  = raw.split(/(```[\s\S]*?```)/g);
+  let html     = '';
   parts.forEach((part, i) => {
     if (i % 2 === 1) {
-      // Fenced code block
       const inner = part.replace(/^```[^\n]*\n?/, '').replace(/```$/, '');
       html += `<pre class="md-code">${esc(inner)}</pre>`;
       return;
     }
-    // Normal text — process line by line
     const lines = part.split('\n');
-    let inList = false;
+    let inList  = false;
     lines.forEach(line => {
-      // ATX headings
-      const h3 = line.match(/^###\s+(.+)/);
-      const h2 = line.match(/^##\s+(.+)/);
       const h1 = line.match(/^#\s+(.+)/);
+      const h2 = line.match(/^##\s+(.+)/);
+      const h3 = line.match(/^###\s+(.+)/);
       if (h1) { if (inList) { html += '</ul>'; inList = false; } html += `<h3 class="md-h1">${esc(h1[1])}</h3>`; return; }
       if (h2) { if (inList) { html += '</ul>'; inList = false; } html += `<h4 class="md-h2">${esc(h2[1])}</h4>`; return; }
       if (h3) { if (inList) { html += '</ul>'; inList = false; } html += `<h5 class="md-h3">${esc(h3[1])}</h5>`; return; }
-      // Bullet list items
       const li = line.match(/^[-*]\s+(.+)/);
-      if (li) {
-        if (!inList) { html += '<ul class="md-ul">'; inList = true; }
-        html += `<li>${_inlineMarkdown(esc(li[1]))}</li>`;
-        return;
-      }
-      // Numbered list items
       const ol = line.match(/^\d+\.\s+(.+)/);
-      if (ol) {
+      if (li || ol) {
         if (!inList) { html += '<ul class="md-ul">'; inList = true; }
-        html += `<li>${_inlineMarkdown(esc(ol[1]))}</li>`;
+        html += `<li>${_inlineMarkdown(esc((li || ol)[1]))}</li>`;
         return;
       }
-      // Close list on blank or non-list line
       if (inList) { html += '</ul>'; inList = false; }
       if (line.trim() === '') { html += '<br>'; return; }
       html += `<p class="md-p">${_inlineMarkdown(esc(line))}</p>`;
@@ -694,197 +929,7 @@ function _inlineMarkdown(escaped) {
     .replace(/`([^`]+)`/g,     '<code class="md-inline">$1</code>');
 }
 
-async function _invokeAnalysisStream(mdDiv, output) {
-  if (_aiProvider === 'huggingface') {
-    return await _invokeViaHuggingFace(mdDiv, output);
-  }
-  return await _invokeViaGemini(mdDiv, output);
-}
-
-function _buildSystemPrompt() {
-  let ctx = '';
-  if (state.activeTech && QUESTION_BANK[state.activeTech]) {
-    const tech = QUESTION_BANK[state.activeTech];
-    const tierLabel = { l1: 'L1', l2: 'L2', both: 'L1 + L2' }[state.tier] || state.tier;
-    ctx = `\n\nCURRENT INCIDENT CONTEXT: The engineer is actively working on a ${tech.label} case at ${tierLabel} tier. Tailor your response specifically to ${tech.label} — prioritise ${tech.label}-specific Event IDs, commands, registry paths, and known issues over generic networking advice.`;
-  }
-  return _SYSTEM_PROMPT + ctx;
-}
-
-async function _invokeViaGemini(mdDiv, output) {
-  const GEMINI_KEY = LS.get('pcy_gemini_key', '');
-  if (!GEMINI_KEY) {
-    mdDiv.textContent = '⚠ No Gemini API key set. Enter your key in the field above and save it.';
-    return '';
-  }
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`;
-
-  const contents = [
-    { role: 'user', parts: [{ text: _buildSystemPrompt() }] },
-    { role: 'model', parts: [{ text: 'Understood. I am ready to assist as a senior Windows Networking incident response engineer.' }] },
-    ..._chatHistory.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }))
-  ];
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
-  let res;
-  try {
-    res = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents }),
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini returned HTTP ${res.status}: ${err.slice(0,200)}`);
-  }
-
-  const reader  = res.body.getReader();
-  const decoder = new TextDecoder();
-  let fullText  = '';
-  let buffer    = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const json = line.slice(6).trim();
-      if (!json) continue;
-      try {
-        const chunk = JSON.parse(json);
-        const piece = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (piece) {
-          fullText += piece;
-          mdDiv.innerHTML = _renderMarkdown(fullText);
-          output.scrollTop = output.scrollHeight;
-        }
-      } catch { /* malformed chunk — skip */ }
-    }
-  }
-
-  return fullText.trim() || 'No response received.';
-}
-
-async function _invokeViaHuggingFace(mdDiv, output) {
-  const HF_KEY = LS.get('pcy_hf_key', '');
-  if (!HF_KEY) {
-    mdDiv.textContent = '⚠ No HuggingFace API key set. Enter your key in the field above and save it.';
-    return '';
-  }
-  const HF_URL = 'https://router.huggingface.co/v1/chat/completions';
-
-  const messages = [
-    { role: 'system', content: _buildSystemPrompt() },
-    ..._chatHistory
-  ];
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
-  let res;
-  try {
-    res = await fetch(HF_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${HF_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct',
-        messages,
-        max_tokens: 2048,
-        stream: true
-      }),
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`HuggingFace returned HTTP ${res.status}: ${err.slice(0,200)}`);
-  }
-
-  const reader  = res.body.getReader();
-  const decoder = new TextDecoder();
-  let fullText  = '';
-  let buffer    = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const json = line.slice(6).trim();
-      if (!json || json === '[DONE]') continue;
-      try {
-        const chunk = JSON.parse(json);
-        const piece = chunk.choices?.[0]?.delta?.content || '';
-        if (piece) {
-          fullText += piece;
-          mdDiv.innerHTML = _renderMarkdown(fullText);
-          output.scrollTop = output.scrollHeight;
-        }
-      } catch { /* malformed chunk — skip */ }
-    }
-  }
-
-  return fullText.trim() || 'No response received.';
-}
-
-function saveApiKey(provider) {
-  if (provider === 'gemini') {
-    const key = document.getElementById('geminiKeyInput')?.value.trim();
-    if (!key) { showToast('Enter a key first.'); return; }
-    LS.set('pcy_gemini_key', key);
-    showToast('Gemini key saved!');
-  } else {
-    const key = document.getElementById('hfKeyInput')?.value.trim();
-    if (!key) { showToast('Enter a key first.'); return; }
-    LS.set('pcy_hf_key', key);
-    showToast('HuggingFace key saved!');
-  }
-}
-
-// ─── User bubble helper (assistant bubbles built inline during streaming) ──────
-function _appendUserBubble(container, text) {
-  const wrap = document.createElement('div');
-  wrap.className = 'ai-bubble ai-bubble-user';
-  const p = document.createElement('div');
-  p.className = 'ai-bubble-text';
-  p.textContent = text;
-  wrap.appendChild(p);
-  container.appendChild(wrap);
-}
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
-function escapeAttr(str) {
-  return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-}
-
-function showToast(msg = 'Copied!') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-// ─── Theme Toggle ──────────────────────────────────────────────────────────────────────────────
+// ─── Theme Toggle ─────────────────────────────────────────────────────────────
 let _isGlass = false;
 
 function toggleTheme() {
@@ -895,7 +940,7 @@ function toggleTheme() {
   document.getElementById('themeTooltip').textContent = _isGlass ? 'Dark' : 'Light';
 }
 
-// ─── Case Notes Panel ────────────────────────────────────────────────────────────────────
+// ─── Case Notes Panel ─────────────────────────────────────────────────────────
 let _cnOpen = false;
 
 const _cnFields = [
@@ -914,7 +959,10 @@ function toggleCaseNotes() {
 }
 
 function clearAllNotes() {
-  _cnFields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _cnFields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   _cnFields.forEach(id => LS.set('pcy_cn_' + id, ''));
   _doUpdatePreview();
 }
@@ -930,10 +978,8 @@ function _section(title, content) {
 }
 
 function updatePreview() {
-  // Debounce: save to localStorage max once per 300ms
   clearTimeout(updatePreview._t);
   updatePreview._t = setTimeout(_doUpdatePreview, 300);
-  // Flash saved indicator immediately for responsiveness
   const ind = document.getElementById('cnSavedIndicator');
   if (ind) {
     ind.textContent = '✓ Draft saved';
@@ -944,13 +990,12 @@ function updatePreview() {
 }
 
 function _doUpdatePreview() {
-  // Save all fields to localStorage
   _cnFields.forEach(id => {
     const el = document.getElementById(id);
     if (el) LS.set('pcy_cn_' + id, el.value);
   });
 
-  const sr        = _val('cn-sr');
+  const sr         = _val('cn-sr');
   const date       = _val('cn-date');
   const followup   = _val('cn-followup');
   const engineer   = _val('cn-engineer');
@@ -959,7 +1004,6 @@ function _doUpdatePreview() {
   const severity   = _val('cn-severity');
   const status     = _val('cn-status');
   const contact    = _val('cn-contact');
-
   const issue      = _val('cn-issue');
   const env        = _val('cn-env');
   const assess     = _val('cn-assessment');
@@ -977,6 +1021,7 @@ function _doUpdatePreview() {
   const hasAny = [sr,date,followup,engineer,customer,tech,severity,status,contact,
                   issue,env,assess,data,repro,changes,actCust,actMs,
                   resolution,kb,escalation,relatedSr,notes].some(v => v);
+
   if (!hasAny) {
     document.getElementById('cnPreview').textContent =
       'Fill in the sections above to generate your formatted case note...';
@@ -1028,30 +1073,17 @@ function toggleCnPreview() {
   const pre  = document.getElementById('cnPreview');
   const icon = document.getElementById('cnPreviewToggleIcon');
   const open = pre.style.display === 'none';
-  pre.style.display  = open ? 'block' : 'none';
-  icon.textContent   = open ? '▼' : '▶';
+  pre.style.display = open ? 'block' : 'none';
+  icon.textContent  = open ? '▼' : '▶';
   if (open) pre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ─── AI Clear Chat ────────────────────────────────────────────────────────────
-function clearAiChat() {
-  _chatHistory.length = 0;
-  LS.set('pcy_chat_history', []);
-  const output = document.getElementById('aiOutput');
-  output.innerHTML = '';
-  output.style.display = 'none';
-  showToast('Chat cleared');
-}
-
-// ─── Keyboard Shortcuts ─────────────────────────────────────────────────────────
+// ─── Keyboard Shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  // Escape — close case notes panel
   if (e.key === 'Escape' && _cnOpen) {
     toggleCaseNotes();
     return;
   }
-
-  // Ctrl+F — focus search (only when questions are visible)
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     const si = document.getElementById('searchInput');
     if (si && document.getElementById('questionsOutput').style.display !== 'none') {
@@ -1061,8 +1093,6 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-
-  // Ctrl+L — clear AI chat
   if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
     e.preventDefault();
     clearAiChat();
@@ -1070,8 +1100,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Enter / Space on the case notes tab for keyboard accessibility
-document.addEventListener('DOMContentLoaded', () => {}, true);
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'cnTab') {
     e.preventDefault();
@@ -1079,7 +1107,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Enter to send AI message (Shift+Enter = newline)
 document.addEventListener('DOMContentLoaded', () => {
   const aiInput = document.getElementById('aiInput');
   if (aiInput) {

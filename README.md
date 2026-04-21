@@ -1,10 +1,10 @@
-# MS Unified Support — PCY Question Generator
+# NetOps Cockpit — Windows Networking Incident Command
 
 A professional web application for L1 and L2 Microsoft Unified Support engineers supporting Windows Networking (PCY practice).
 
 ## 🎯 Purpose
 
-Instantly generate relevant **scoping**, **probing**, **troubleshooting**, and **data collection** questions for support cases across all major Windows Networking and Authentication technologies.
+Instantly surface structured **scoping**, **probing**, **troubleshooting**, **data collection**, and **step-by-step playbook** guidance for support cases across all major Windows Networking and Authentication technologies.
 
 ---
 
@@ -28,21 +28,21 @@ Instantly generate relevant **scoping**, **probing**, **troubleshooting**, and *
 
 ## 🚀 Getting Started
 
-### Option 1 — Open directly in browser
+### Open directly in browser
 Simply open `index.html` in any modern browser. No server required.
 
 ```bash
-# macOS
-open index.html
-
 # Windows
 start index.html
+
+# macOS
+open index.html
 
 # Linux
 xdg-open index.html
 ```
 
-### Option 2 — Serve locally
+### Serve locally (optional)
 ```bash
 # Python 3
 python -m http.server 3000
@@ -60,8 +60,8 @@ Then open `http://localhost:3000`
 ms-support-question-generator/
 ├── index.html      — Main application UI
 ├── app.js          — Application logic, state management, AI integration
-├── questions.js    — Question bank (all technologies, all tiers)
-├── styles.css      — UI styles
+├── questions.js    — Question bank and playbooks (all technologies, all tiers)
+├── styles.css      — UI styles (dark + liquid glass themes)
 └── README.md       — This file
 ```
 
@@ -78,6 +78,16 @@ ms-support-question-generator/
 - **L2 Tier** — Advanced technical deep-dive questions
 - Filter by technology, tier (L1 / L2 / Both), and question type
 
+### Playbooks
+- Dedicated **Playbook** tab per technology with symptom-driven runbooks
+- Select a symptom from the picker to load a structured multi-phase runbook
+- Each playbook has phases (Verify → Isolate → Fix → Confirm) with numbered steps
+- Each step shows the exact command/action and the expected outcome
+- Severity badge (High / Medium / Low) on each playbook
+- Checkboxes on every step to track progress
+- **Copy Playbook** button exports the full runbook as plain text
+- Playbooks available for all 11 technologies
+
 ### Question Search & Filter
 - Real-time keyword search across all visible questions
 - Matching keyword highlighted inline in cyan
@@ -87,8 +97,8 @@ ms-support-question-generator/
 - Shortcut: `Ctrl+F` focuses the search input
 
 ### Question Completion Checkboxes
-- Checkbox on every question to mark it as asked/answered
-- Checked questions are struck through with a green tint
+- Checkbox on every question and playbook step to mark it as asked/done
+- Checked items are struck through with a green tint
 - Progress bar shows `X / Y checked` with animated fill
 - "Clear Checks" button resets all checkboxes in one click
 
@@ -98,11 +108,13 @@ ms-support-question-generator/
 - **Export .txt** — plain text with metadata header
 - **Export .md** — Markdown with metadata table, renders in OneNote / Confluence / Azure DevOps
 - **Export .html** — self-contained styled HTML with L1/L2 colour-coded badges, print-ready
+- **Copy Playbook** — exports the active playbook as structured plain text
 
-### AI-Powered Assistant
+### AI-Powered Incident Advisor
 - Paste any customer scenario description or ask any technical question
 - Multi-turn conversational chat — context preserved across messages
 - **Streaming responses** — tokens render as they arrive, no waiting for full response
+- Automatically tailors advice to the currently selected technology and tier
 - Two AI provider options — switch between them with the provider toggle:
   - ⚡ **Google Gemini 2.5 Flash** — fast, high quality (requires free API key)
   - 🤗 **HuggingFace Qwen2.5-72B** — powerful open model (requires free API key)
@@ -116,8 +128,8 @@ ms-support-question-generator/
 - Toggle button in the header (🌙 / ☀️), tooltip shows "Light" or "Dark" on hover
 - Theme preference saved and restored across sessions
 
-### Case Notes Builder
-Sliding panel (📝 tab on the right edge) for building structured ICM/SR documentation:
+### Incident Log (Case Notes Builder)
+Sliding panel (📝 **Incident Log** tab on the right edge) for building structured ICM/SR documentation:
 
 **Meta fields:**
 - SR / ICM Number, Date, Follow-up Date
@@ -141,20 +153,24 @@ Sliding panel (📝 tab on the right edge) for building structured ICM/SR docume
 - Fully restored on page reload — no data lost on refresh
 - "Copy Note" formats all filled fields into a clean structured text block ready to paste into ICM/SR
 - "Clear" resets all fields and clears saved draft
+- Collapsible **Formatted Note Preview** section at the bottom of the panel
 
 ### Persistence (localStorage)
 All of the following survive page refresh:
 - Selected technology, tier, and question type
 - Theme preference (dark / glass)
-- All case notes fields
+- AI provider selection
+- AI chat history (last 20 messages)
+- All Incident Log fields
 
 ### Keyboard Shortcuts
 | Shortcut | Action |
 |---|---|
 | `Ctrl+F` | Focus question search input |
 | `Ctrl+L` | Clear AI chat history |
-| `Esc` | Close the Case Notes panel |
-| `Enter` / `Space` | Open Case Notes panel (when tab is focused) |
+| `Ctrl+Enter` | Send AI message |
+| `Esc` | Close the Incident Log panel |
+| `Enter` / `Space` | Open Incident Log panel (when tab is focused) |
 
 ---
 
@@ -216,6 +232,33 @@ const TECH_CATEGORIES = {
 
 ---
 
+## 🗺️ Adding Playbooks
+
+Playbooks are attached to a technology after the `QUESTION_BANK` definition in `questions.js`:
+
+```javascript
+QUESTION_BANK.technology_key.playbooks = {
+  symptom_slug: {
+    title: "Short symptom description",
+    severity: "high",          // "high" | "medium" | "low"
+    phases: [
+      {
+        name: "Verify", icon: "✅",
+        steps: [
+          { action: "Command or action to run", expect: "What a good result looks like" },
+          ...
+        ]
+      },
+      { name: "Isolate", icon: "🔍", steps: [...] },
+      { name: "Fix",     icon: "🛠",  steps: [...] },
+      { name: "Confirm", icon: "🎯", steps: [...] }
+    ]
+  }
+};
+```
+
+---
+
 ## 📋 Question Categories Explained
 
 ### Scoping Questions
@@ -241,11 +284,18 @@ Used to **package evidence for escalation**:
 - ETL traces, event log exports, config exports
 - Commands to run and files to collect before escalating to L2/L3
 
+### Playbooks
+Used to **run a structured incident response**:
+- Symptom-driven runbooks with Verify → Isolate → Fix → Confirm phases
+- Each step has an exact command and expected outcome
+- Track progress with per-step checkboxes
+
 ---
 
 ## 🛠️ Customization
 
 - **Add new technologies**: Extend `QUESTION_BANK` and `TECH_CATEGORIES` in `questions.js`
+- **Add new playbooks**: Extend `QUESTION_BANK.<key>.playbooks` in `questions.js`
 - **Modify UI theme**: Edit CSS variables in `styles.css` (`:root` block)
 - **Change AI model**: Update `model` in `_invokeViaGemini()` or `_invokeViaHuggingFace()` in `app.js`
 - **Adjust AI prompt**: Edit `_SYSTEM_PROMPT` in `app.js` to change tone or focus area
@@ -257,12 +307,13 @@ Used to **package evidence for escalation**:
 1. **Start with Scoping (L1)** — Always gather environment basics first
 2. **Use Probing (L1) for initial data** — Get ipconfig, event logs, and service status
 3. **Use Troubleshooting (L1)** — Apply common fixes before escalating
-4. **Escalate with Probing (L2) + Data Collection (L2)** — Collect traces and advanced cmdlets for L2 analysis
-5. **Use AI Assistant for complex cases** — Paste the customer's exact description for tailored expert guidance
-6. **Check off questions as you go** — Use checkboxes to track what's been asked; progress bar shows coverage
-7. **Search when you know what you need** — `Ctrl+F` to filter hundreds of questions instantly
-8. **Build case notes in parallel** — Open the 📝 panel and fill sections as the call progresses; it auto-saves
-9. **Export to .md or .html** — Attach to ICM/SR or paste into OneNote/Confluence for documentation
+4. **Use Playbooks for known symptoms** — Select the matching symptom for a guided Verify → Fix → Confirm runbook
+5. **Escalate with Probing (L2) + Data Collection (L2)** — Collect traces and advanced cmdlets for L2 analysis
+6. **Use AI Advisor for complex cases** — Paste the customer's exact description for tailored expert guidance
+7. **Check off questions as you go** — Use checkboxes to track what's been asked; progress bar shows coverage
+8. **Search when you know what you need** — `Ctrl+F` to filter hundreds of questions instantly
+9. **Build case notes in parallel** — Open the 📝 Incident Log panel and fill sections as the call progresses; it auto-saves
+10. **Export to .md or .html** — Attach to ICM/SR or paste into OneNote/Confluence for documentation
 
 ---
 
@@ -272,8 +323,9 @@ To add questions or improve coverage:
 1. Edit `questions.js` with your additions
 2. Follow the existing JSON structure
 3. Include all four sections (`scoping`, `probing`, `troubleshooting`, `datacollection`) with both `l1` and `l2` entries
-4. Add the technology key to the correct category in `TECH_CATEGORIES`
-5. Prefer PowerShell cmdlets over legacy `cmd` tools where applicable
+4. Optionally add a `playbooks` block for the technology
+5. Add the technology key to the correct category in `TECH_CATEGORIES`
+6. Prefer PowerShell cmdlets over legacy `cmd` tools where applicable
 
 ---
 

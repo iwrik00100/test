@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/iwrik00100/test/schema/domain-index.schema.json",
+  "title": "Domain Index",
+  "description": "Schema for _index.json files that list all technologies in a domain",
+  "type": "object",
+  "required": ["key", "label", "icon", "description", "technologies"],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z_]+$",
+      "description": "Unique snake_case identifier for this domain"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Display name for the domain"
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Emoji icon for the domain card"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Brief description of what this domain covers"
+    },
+    "technologies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "icon"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "Technology key matching the JSON filename"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Display name for the technology"
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Emoji icon for the technology button"
+          }
+        }
+      }
+    }
+  }
+}

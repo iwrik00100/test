@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────────
+# NetOps Cockpit — CODEOWNERS
+# Each domain is owned by its tech lead.
+# PRs touching a domain require approval from that domain's owner.
+# ─────────────────────────────────────────────────────────────────
+
+# Core app — repo owner only
+/src/                           @iwrik00100
+/schema/                        @iwrik00100
+/docker/                        @iwrik00100
+/k8s/                           @iwrik00100
+/ansible/                       @iwrik00100
+/grafana/                       @iwrik00100
+/.github/                       @iwrik00100
+/docker-compose.yml             @iwrik00100
+README.md                       @iwrik00100
+CONTRIBUTING.md                 @iwrik00100
+
+# Domain data — assign your tech leads below
+# Replace @tech-lead-alias with actual GitHub usernames
+
+/domains/networking/            @iwrik00100
+/domains/directory_services/    @iwrik00100
+/domains/performance/           @iwrik00100
+/domains/user_experience/       @iwrik00100
+/domains/device_deployment/     @iwrik00100
+/domains/storage_ha/            @iwrik00100
+/domains/collaboration/         @iwrik00100

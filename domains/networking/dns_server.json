@@ -1,0 +1,219 @@
+{
+  "key": "dns_server",
+  "label": "DNS Server",
+  "icon": "🖧",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows Server version is the DNS server running on? (2012 R2 / 2016 / 2019 / 2022)",
+      "Is the DNS server role installed standalone, or is it co-hosted on a Domain Controller?",
+      "Is the zone configuration standalone (file-backed) or Active Directory-Integrated?",
+      "How many DNS servers are deployed — are they Primary, Secondary, or AD-integrated replicas?",
+      "What is the exact error message or Event ID reported by the DNS Server service?",
+      "When did the issue first occur — was there a Windows Update, config change, or infrastructure event?",
+      "Is the problem affecting all DNS queries or only specific record types (A, AAAA, MX, PTR, SRV)?",
+      "Are all clients affected, or is it zone-specific, site-specific, or client-specific?",
+      "Is the DNS Server service currently running? (services.msc or Get-Service DNS)",
+      "Are there error events in Event Viewer under Applications and Services Logs > DNS Server?",
+      "Is this DNS server also a Global Catalog server? Could GC port 3268/3269 issues affect DNS?",
+      "Is the DNS server reachable on port 53 TCP and UDP from affected clients?"
+    ],
+    "l2": [
+      "What zone types are hosted — Forward Lookup, Reverse Lookup, Stub, Conditional Forwarder, or Secondary?",
+      "For AD-integrated zones: what replication scope is configured — DomainDNSZones, ForestDNSZones, or Legacy (domain partition)?",
+      "Are there zone delegation records (NS records) pointing to this server that may be stale or incorrect?",
+      "What forwarders are configured — are they conditional or global? Are they reachable on UDP and TCP 53?",
+      "Is recursion enabled or disabled? If disabled, is this an authoritative-only server — and are clients querying it for recursive lookups?",
+      "Are DNSSEC zones configured — what signing algorithm (RSASHA256/ECDSAP256), key rollover schedule, and trust anchor distribution method are in use?",
+      "Are DNS Policies (server-level or zone-level) configured for split-brain, geo-DNS, or application load balancing?",
+      "Is Response Rate Limiting (RRL) enabled — could it be throttling legitimate clients that share a source IP (e.g., behind NAT)?",
+      "What are the DNS aging and scavenging settings — No-Refresh interval, Refresh interval, and scavenging period? Is automatic scavenging enabled?",
+      "Is the DNS server listening on all interfaces or specific IPs only? Could a recent NIC/IP change affect listener binding?",
+      "Is DNS debug logging enabled — what log level flags are set and what is the maximum log file size?",
+      "Is there a split-brain (split-horizon) DNS configuration — the same zone hosted internally and externally with different records?",
+      "Are DNS socket pool and cache locking configured for DNS cache poisoning protection (Windows Server 2008 R2+)?",
+      "What is the TTL configuration for dynamic records — is it consistent with the client update and scavenging intervals?",
+      "Are there any Windows Firewall or third-party firewall rules blocking DNS port 53 (UDP/TCP) inbound or outbound on the server?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'nslookup <failing hostname> <DNS server IP>' — share full output including server, address, and any error (Non-existent domain, Timeout, Server failed).",
+      "Run 'Resolve-DnsName <hostname> -Server <DNS IP> -Type A' — share PowerShell output.",
+      "Run 'Get-Service DNS | Select Name,Status,StartType,ServiceType' — confirm the service is running.",
+      "Run 'ipconfig /all' on the DNS server — confirm server's own IP, subnet, gateway, and its own DNS server setting.",
+      "Is the issue reproducible from multiple clients or only one — helps confirm if the server is the problem vs. a client-side cache issue?",
+      "Run 'Test-NetConnection -ComputerName <DNS IP> -Port 53' from an affected client — is TCP 53 reachable?",
+      "Run 'nslookup -type=SOA <zone name> <DNS IP>' — does it return the SOA record correctly?",
+      "Has restarting the DNS Server service temporarily restored resolution? 'Restart-Service DNS'",
+      "Export DNS Server event log entries from the time window when the issue started — look for Event IDs 4000, 4001, 4004, 4013, 6702."
+    ],
+    "l2": [
+      "Run 'dcdiag /test:dns /v /f:C:\\dcdiag_dns.txt' — share the full text file; note all FAIL and WARN entries.",
+      "Run 'repadmin /showrepl * /csv > C:\\repadmin_showrepl.csv' — check for replication failures across all DCs.",
+      "Run 'dnscmd /enumzones' — share the zone list with ZoneType, ZoneDP, and ReplicationScope for each zone.",
+      "Run 'Get-DnsServerZone | Select ZoneName,ZoneType,ReplicationScope,IsDsIntegrated,IsAutoCreated,IsReverseLookupZone,IsDynamicUpdateEnabled' — share full output.",
+      "Run 'Get-DnsServerDiagnostics | Format-List *' — share all diagnostic/logging flags.",
+      "Enable DNS debug logging: 'dnscmd /config /loglevel 0x8100F331 /logfilepath C:\\dns_debug.log /logfilesize 1000000000' — reproduce — disable: 'dnscmd /config /loglevel 0x0' — share dns_debug.log.",
+      "Run 'Get-DnsServerForwarder' — list forwarders; test each: 'Test-NetConnection <forwarder IP> -Port 53'.",
+      "Run 'Get-DnsServerRecursion' — what is RecursionAvailable, RecursionTimeout, AdditionalRecursionTimeout?",
+      "Run 'Get-DnsServerRootHint' — are root hints present and correct for the 13 root name servers?",
+      "Run 'Get-DnsServerStatistics -ZoneName <zone>' — review TotalQueries, TotalResponses, TcpQueries, UdpQueries, RecursionFailures, SecureUpdateFailures.",
+      "Run 'Get-DnsServerZoneTransfer -ZoneName <zone>' — confirm zone transfer settings (SecureNotify, TransferToAnyServer).",
+      "Run 'Get-DnsServerResourceRecord -ZoneName <zone> -RRType NS' — are NS records current and pointing to live servers?",
+      "Run 'Get-DnsServerCache | Select -First 50' — inspect cached records for stale entries.",
+      "Run 'Get-DnsServerDnsSecZone -ZoneName <zone>' — review DNSSEC signing state, KSK/ZSK, and rollover status.",
+      "Run 'Get-DnsServerPolicy' and 'Get-DnsServerPolicy -ZoneName <zone>' — list all server and zone-level DNS policies."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Verify DNS Server service is started and set to Automatic: 'Set-Service DNS -StartupType Automatic; Start-Service DNS'",
+      "Check zone loading: 'Get-DnsServerZone | Where ZoneType -eq \"Primary\"' — are all expected zones loaded?",
+      "Test resolution locally on the DNS server itself — if nslookup works on the server but not from clients, the issue is network or client-side.",
+      "Ping and Test-NetConnection the forwarder IPs on port 53 — if unreachable, DNS resolution for external names will fail.",
+      "Review Event ID 4013 — DNS is waiting for AD. Cause: AD replication not complete at DNS service start. Resolution: 'net stop dns && net start dns' after AD is healthy.",
+      "Flush the DNS server cache: 'Clear-DnsServerCache -Force' — then retry the failing query.",
+      "Verify the server is domain-joined with valid credentials: 'nltest /sc_verify:<domain>' and 'klist' — expired Kerberos tickets can prevent AD zone loading.",
+      "Check Windows Firewall — confirm port 53 TCP and UDP inbound rules are enabled: 'Get-NetFirewallRule | Where DisplayName -like \"*DNS*\"'"
+    ],
+    "l2": [
+      "If AD-integrated zone fails to load (Event 4000/4001): check if the DNS partition exists — 'repadmin /showattr . DC=DomainDNSZones,<domain> /atts:objectClass'.",
+      "If zone records are stale due to scavenging: check per-record timestamp vs. No-Refresh interval — 'Get-DnsServerResourceRecord -ZoneName <z> -RRType A | Select HostName,Timestamp' — increase No-Refresh interval or disable scavenging on critical records.",
+      "If recursion fails for external names: run 'Resolve-DnsName . -Type NS -Server <DNS IP>' — timeout indicates broken root hints or blocked UDP 53 outbound. Check firewall ACLs and root hints.",
+      "If DNSSEC validation fails (SERVFAIL on DNSSEC-signed zone): run 'Resolve-DnsName <zone> -DnssecOk -Server <DNS IP>' and compare with 'Get-DnsServerDnsSecZone' trust anchor state.",
+      "If DNS Policy is misdirecting queries: 'Get-DnsServerQueryResolutionPolicy' — verify SubnetList matches the failing client's source IP.",
+      "If split-brain divergence causes wrong records for internal clients: compare SOA serial — 'Resolve-DnsName <zone> -Type SOA -Server <internalDNS>' vs '<externalDNS>' — if external serial > internal, zone transfer is stale.",
+      "If DNS debug log shows REFUSED (RCODE 5): the server is refusing queries from that source IP — check DNS server's Recursion scope or Query ACLs.",
+      "If Response Rate Limiting (RRL) is dropping legitimate queries: 'Get-DnsServerResponseRateLimiting' — review WindowSize, LeakRate, TruncateRate — whitelist internal subnets if needed.",
+      "If AD replication is causing inconsistent DNS records across DCs: force replication — 'repadmin /syncall /Adep' — then verify record consistency across all DNS servers.",
+      "Use pktmon to capture DNS traffic: 'pktmon filter add -p 53; pktmon start --capture; <reproduce>; pktmon stop; pktmon etl2txt pktmon.etl' — look for RCODE in response packets."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Export DNS Server event log: 'wevtutil epl DNS-Server-Service C:\\DNS_Server_Events.evtx'",
+      "Run 'ipconfig /all > C:\\dns_server_ipconfig.txt'",
+      "Run 'dnscmd /info > C:\\dnscmd_info.txt'",
+      "Run 'nslookup <failing name> <DNS IP> > C:\\nslookup_test.txt'",
+      "Run 'Get-DnsServerZone | Export-Csv C:\\dns_zones.csv -NoTypeInformation'"
+    ],
+    "l2": [
+      "Enable DNS debug logging: 'dnscmd /config /loglevel 0x8100F331 /logfilepath C:\\dns_debug.log /logfilesize 1000000000' — reproduce for 5–10 minutes — disable: 'dnscmd /config /loglevel 0x0'",
+      "Run 'dcdiag /test:dns /v /f:C:\\dcdiag_dns.txt'",
+      "Run 'repadmin /showrepl * /csv > C:\\repadmin_showrepl.csv'",
+      "Capture network trace: 'netsh trace start capture=yes tracefile=C:\\dns_trace.etl maxsize=1024 overwrite=yes' — reproduce — 'netsh trace stop'",
+      "Run 'Get-DnsServerStatistics | ConvertTo-Json | Out-File C:\\dns_statistics.json'",
+      "Export all zone data: ForEach ($z in (Get-DnsServerZone).ZoneName) { dnscmd /zoneexport $z \"C:\\$z.dns\" }",
+      "Run 'Get-DnsServerDiagnostics | Out-File C:\\dns_diagnostics.txt'",
+      "Collect System and Application event logs: 'wevtutil epl System C:\\System_Events.evtx'; 'wevtutil epl Application C:\\App_Events.evtx'"
+    ]
+  },
+  "playbooks": {
+    "resolution_failing_all": {
+      "title": "DNS resolution failing — all clients",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-Service DNS | Select Name,Status,StartType", "expect": "Status: Running, StartType: Automatic" },
+            { "action": "Test-NetConnection -ComputerName <DNS IP> -Port 53", "expect": "TcpTestSucceeded: True" },
+            { "action": "nslookup <failing name> <DNS IP>", "expect": "Returns valid A record — if timeout or SERVFAIL, server is the issue" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "nslookup <failing name> on the DNS server itself", "expect": "If resolves here but not from clients, network or firewall is blocking port 53" },
+            { "action": "Get-WinEvent -LogName 'DNS Server' | Where Id -in 4000,4001,4013 | Select -First 10 | Format-List", "expect": "Event 4013 = waiting for AD; 4000/4001 = zone load failure" },
+            { "action": "Get-DnsServerZone | Select ZoneName,ZoneType,IsDsIntegrated", "expect": "All expected zones present and loaded" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Clear-DnsServerCache -Force", "expect": "Cache cleared — retry resolution immediately after" },
+            { "action": "Restart-Service DNS", "expect": "Service restarts cleanly — check Event ID 4 in DNS Server log" },
+            { "action": "Get-NetFirewallRule | Where DisplayName -like '*DNS*' | Select DisplayName,Enabled,Direction,Action", "expect": "Inbound rules for port 53 TCP and UDP are Enabled and Allow" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Resolve-DnsName <failing name> -Server <DNS IP>", "expect": "Returns correct IP address" },
+            { "action": "Test from two clients on different subnets", "expect": "Both resolve correctly — confirms server-wide fix" }
+          ]
+        }
+      ]
+    },
+    "zone_not_loading": {
+      "title": "AD-integrated zone not loading",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-DnsServerZone | Where ZoneName -eq '<zone>'", "expect": "Zone should appear — if missing it failed to load from AD" },
+            { "action": "Get-WinEvent -LogName 'DNS Server' | Where Id -in 4000,4001,4013 | Select -First 10 | Format-List", "expect": "Event 4013 = waiting for AD; 4000/4001 = zone load failure" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "repadmin /showrepl", "expect": "No replication failures — if failures exist, fix AD replication first" },
+            { "action": "nltest /sc_verify:<domain>", "expect": "Secure channel is healthy" },
+            { "action": "klist", "expect": "Valid Kerberos tickets present — if expired run klist purge then gpupdate /force" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "net stop dns && net start dns", "expect": "DNS restarts after AD is confirmed healthy — zone loads on startup" },
+            { "action": "dnscmd /zonerefresh <zone>", "expect": "Forces zone reload from AD partition" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Get-DnsServerZone | Where ZoneName -eq '<zone>'", "expect": "Zone present with IsDsIntegrated: True" },
+            { "action": "Resolve-DnsName <record in zone> -Server <DNS IP>", "expect": "Record resolves correctly" }
+          ]
+        }
+      ]
+    },
+    "forwarder_unreachable": {
+      "title": "External name resolution failing — forwarder unreachable",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Resolve-DnsName google.com -Server <DNS IP>", "expect": "If timeout or SERVFAIL, external resolution is broken while internal names still work" },
+            { "action": "Get-DnsServerForwarder", "expect": "Lists configured forwarder IPs" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Test-NetConnection <forwarder IP> -Port 53", "expect": "TcpTestSucceeded: True — if False, forwarder is unreachable" },
+            { "action": "Get-DnsServerRecursion", "expect": "RecursionAvailable: True — if False, recursion is disabled" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Set-DnsServerForwarder -IPAddress <working forwarder IP>", "expect": "Replace unreachable forwarder with a reachable one" },
+            { "action": "Get-DnsServerRootHint", "expect": "Root hints present for fallback recursion if forwarders removed" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Resolve-DnsName google.com -Server <DNS IP>", "expect": "External name resolves successfully" }
+          ]
+        }
+      ]
+    }
+  }
+}

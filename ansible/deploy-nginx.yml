@@ -1,0 +1,136 @@
+---
+# ─────────────────────────────────────────────────────────────────
+#  NetOps Cockpit — Self-Hosted nginx Deploy
+#  Usage: ansible-playbook -i ansible/inventory.ini ansible/deploy-nginx.yml
+#  Target: Linux server with nginx (alternative to GitHub Pages)
+# ─────────────────────────────────────────────────────────────────
+- name: NetOps Cockpit — Deploy to nginx server
+  hosts: prod
+  become: true
+  gather_facts: true
+  vars:
+    app_name: netops-cockpit
+    deploy_path: /var/www/netops-cockpit
+    nginx_conf_path: /etc/nginx/sites-available/netops-cockpit
+    nginx_enabled_path: /etc/nginx/sites-enabled/netops-cockpit
+    repo_path: "{{ playbook_dir | dirname }}"
+
+  tasks:
+
+    # ── Pre-flight ───────────────────────────────────────────────
+    - name: Ensure nginx is installed
+      package:
+        name: nginx
+        state: present
+
+    - name: Ensure deploy directory exists
+      file:
+        path: "{{ deploy_path }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    # ── Deploy files ─────────────────────────────────────────────
+    - name: Sync src/ to server
+      synchronize:
+        src: "{{ repo_path }}/src/"
+        dest: "{{ deploy_path }}/src/"
+        delete: true
+        rsync_opts:
+          - "--exclude=*.map"
+
+    - name: Sync domains/ to server
+      synchronize:
+        src: "{{ repo_path }}/domains/"
+        dest: "{{ deploy_path }}/domains/"
+        delete: true
+
+    - name: Sync schema/ to server
+      synchronize:
+        src: "{{ repo_path }}/schema/"
+        dest: "{{ deploy_path }}/schema/"
+        delete: true
+
+    - name: Set correct ownership on deployed files
+      file:
+        path: "{{ deploy_path }}"
+        owner: www-data
+        group: www-data
+        recurse: true
+
+    # ── nginx config ─────────────────────────────────────────────
+    - name: Write nginx site config
+      copy:
+        dest: "{{ nginx_conf_path }}"
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              root {{ deploy_path }};
+              index index.html;
+
+              location /src/ {
+                  try_files $uri $uri/ /src/index.html;
+                  add_header Cache-Control "no-cache, must-revalidate";
+              }
+
+              location /domains/ {
+                  add_header Content-Type "application/json";
+                  add_header Access-Control-Allow-Origin "*";
+                  add_header Cache-Control "public, max-age=300";
+                  try_files $uri =404;
+              }
+
+              location /schema/ {
+                  add_header Content-Type "application/json";
+                  add_header Cache-Control "public, max-age=3600";
+                  try_files $uri =404;
+              }
+
+              location = / { return 301 /src/; }
+
+              gzip on;
+              gzip_types text/html text/css application/javascript application/json;
+
+              add_header X-Frame-Options        "SAMEORIGIN"    always;
+              add_header X-Content-Type-Options "nosniff"       always;
+              add_header X-XSS-Protection       "1; mode=block" always;
+
+              error_page 404 /src/index.html;
+          }
+      notify: Reload nginx
+
+    - name: Enable nginx site
+      file:
+        src: "{{ nginx_conf_path }}"
+        dest: "{{ nginx_enabled_path }}"
+        state: link
+      notify: Reload nginx
+
+    - name: Remove default nginx site if present
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: Test nginx config
+      command: nginx -t
+      changed_when: false
+
+    # ── Verify ───────────────────────────────────────────────────
+    - name: Verify app is reachable
+      uri:
+        url: "http://localhost/src/"
+        status_code: 200
+      register: health_check
+
+    - name: Deployment complete
+      debug:
+        msg: "✅ NetOps Cockpit deployed successfully — HTTP {{ health_check.status }}"
+
+  handlers:
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded

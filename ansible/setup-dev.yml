@@ -1,0 +1,117 @@
+---
+# ─────────────────────────────────────────────────────────────────
+#  NetOps Cockpit — Dev Environment Setup
+#  Usage: ansible-playbook -i ansible/inventory.ini ansible/setup-dev.yml
+#  Installs: Docker Desktop check, Git, Node.js (optional), kubectl
+# ─────────────────────────────────────────────────────────────────
+- name: NetOps Cockpit — Dev Environment Setup
+  hosts: local
+  gather_facts: true
+  vars:
+    repo_path: "{{ playbook_dir | dirname }}"
+    node_version: "20"
+
+  tasks:
+
+    - name: Show repo path
+      debug:
+        msg: "Setting up dev environment at {{ repo_path }}"
+
+    # ── Git ──────────────────────────────────────────────────────
+    - name: Check git is installed
+      command: git --version
+      register: git_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Show git version
+      debug:
+        msg: "{{ git_check.stdout }}"
+      when: git_check.rc == 0
+
+    - name: Warn if git not found
+      debug:
+        msg: "WARNING: git not found. Install from https://git-scm.com"
+      when: git_check.rc != 0
+
+    # ── Docker ───────────────────────────────────────────────────
+    - name: Check Docker is installed
+      command: docker --version
+      register: docker_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Show Docker version
+      debug:
+        msg: "{{ docker_check.stdout }}"
+      when: docker_check.rc == 0
+
+    - name: Warn if Docker not found
+      debug:
+        msg: "WARNING: Docker not found. Install Docker Desktop from https://docker.com/products/docker-desktop"
+      when: docker_check.rc != 0
+
+    # ── Docker Compose ───────────────────────────────────────────
+    - name: Check Docker Compose is available
+      command: docker compose version
+      register: compose_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Show Docker Compose version
+      debug:
+        msg: "{{ compose_check.stdout }}"
+      when: compose_check.rc == 0
+
+    # ── kubectl ──────────────────────────────────────────────────
+    - name: Check kubectl is installed
+      command: kubectl version --client --short
+      register: kubectl_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Show kubectl version
+      debug:
+        msg: "{{ kubectl_check.stdout }}"
+      when: kubectl_check.rc == 0
+
+    - name: Warn if kubectl not found
+      debug:
+        msg: "WARNING: kubectl not found. Enable Kubernetes in Docker Desktop Settings > Kubernetes"
+      when: kubectl_check.rc != 0
+
+    # ── Validate JSON files ──────────────────────────────────────
+    - name: Find all domain JSON files
+      find:
+        paths: "{{ repo_path }}/domains"
+        patterns: "*.json"
+        recurse: true
+      register: json_files
+
+    - name: Validate JSON syntax for each domain file
+      command: python3 -c "import json,sys; json.load(open('{{ item.path }}'))"
+      loop: "{{ json_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      changed_when: false
+      register: json_validation
+
+    - name: JSON validation summary
+      debug:
+        msg: "✅ All {{ json_files.files | length }} JSON files are valid"
+
+    # ── Summary ──────────────────────────────────────────────────
+    - name: Dev environment setup complete
+      debug:
+        msg: |
+          ─────────────────────────────────────────
+          NetOps Cockpit — Dev Environment Ready
+          ─────────────────────────────────────────
+          Repo path   : {{ repo_path }}
+          JSON files  : {{ json_files.files | length }} validated
+
+          Quick start commands:
+            docker compose up                          → App at http://localhost:8080/src/
+            docker compose --profile monitoring up    → App + Grafana at http://localhost:3000
+            kubectl apply -k k8s/                     → Deploy to local K8s
+          ─────────────────────────────────────────

@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/iwrik00100/test/schema/technology.schema.json",
+  "title": "Technology Question Bank",
+  "description": "Schema for a single technology JSON file in NetOps Cockpit",
+  "type": "object",
+  "required": ["key", "label", "icon", "domain", "scoping", "probing", "troubleshooting", "datacollection"],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Unique snake_case identifier for this technology"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Display name shown in the UI"
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Emoji icon for the technology button"
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["networking", "directory_services", "performance", "user_experience", "device_deployment", "storage_ha", "collaboration"],
+      "description": "Parent domain this technology belongs to"
+    },
+    "scoping": { "$ref": "#/definitions/questionSection" },
+    "probing": { "$ref": "#/definitions/questionSection" },
+    "troubleshooting": { "$ref": "#/definitions/questionSection" },
+    "datacollection": { "$ref": "#/definitions/questionSection" },
+    "playbooks": {
+      "type": "object",
+      "description": "Optional playbooks keyed by symptom slug",
+      "additionalProperties": { "$ref": "#/definitions/playbook" }
+    }
+  },
+  "definitions": {
+    "questionSection": {
+      "type": "object",
+      "required": ["l1", "l2"],
+      "additionalProperties": false,
+      "properties": {
+        "l1": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 3,
+          "description": "L1 foundational questions — minimum 3 required"
+        },
+        "l2": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 3,
+          "description": "L2 advanced questions — minimum 3 required"
+        }
+      }
+    },
+    "playbook": {
+      "type": "object",
+      "required": ["title", "severity", "phases"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 5 },
+        "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/phase" }
+        }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "required": ["name", "icon", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/step" }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["action", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "type": "string", "minLength": 5 },
+        "expect": { "type": "string", "minLength": 5 }
+      }
+    }
+  }
+}

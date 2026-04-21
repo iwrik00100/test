@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: netops-cockpit
+  namespace: default
+  labels:
+    app: netops-cockpit
+spec:
+  type: ClusterIP
+  selector:
+    app: netops-cockpit
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

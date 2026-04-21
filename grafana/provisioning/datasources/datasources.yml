@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  # ── GitHub Actions metrics via JSON API ──────────────────────
+  - name: GitHub-Actions
+    type: marcusolsson-json-datasource
+    access: proxy
+    url: https://api.github.com
+    isDefault: false
+    jsonData:
+      httpHeaderName1: Authorization
+      httpHeaderName2: Accept
+    secureJsonData:
+      httpHeaderValue1: "Bearer ${GH_TOKEN}"
+      httpHeaderValue2: "application/vnd.github+json"
+    editable: true
+
+  # ── TestData (built-in — used for demo dashboards) ───────────
+  - name: TestData
+    type: testdata
+    access: proxy
+    isDefault: true
+    editable: true

@@ -1053,6 +1053,191 @@ vpn: {
 
 }; // end QUESTION_BANK
 
+// ─── Playbooks ────────────────────────────────────────────────────────────────
+QUESTION_BANK.dns_server.playbooks = {
+  resolution_failing_all: {
+    title: "DNS resolution failing — all clients",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service DNS | Select Name,Status,StartType", expect: "Status: Running, StartType: Automatic" },
+        { action: "Test-NetConnection -ComputerName <DNS IP> -Port 53", expect: "TcpTestSucceeded: True" },
+        { action: "nslookup <failing name> <DNS IP>", expect: "Returns valid A record — if timeout or SERVFAIL, server is the issue" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "nslookup <failing name> on the DNS server itself", expect: "If resolves here but not from clients, network or firewall is blocking port 53" },
+        { action: "Get-WinEvent -LogName 'DNS Server' | Where Id -in 4000,4001,4013 | Select -First 10 | Format-List", expect: "Event 4013 = waiting for AD; 4000/4001 = zone load failure" },
+        { action: "Get-DnsServerZone | Select ZoneName,ZoneType,IsDsIntegrated", expect: "All expected zones present and loaded" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Clear-DnsServerCache -Force", expect: "Cache cleared — retry resolution immediately after" },
+        { action: "Restart-Service DNS", expect: "Service restarts cleanly — check Event ID 4 in DNS Server log" },
+        { action: "Get-NetFirewallRule | Where DisplayName -like '*DNS*' | Select DisplayName,Enabled,Direction,Action", expect: "Inbound rules for port 53 TCP and UDP are Enabled and Allow" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName <failing name> -Server <DNS IP>", expect: "Returns correct IP address" },
+        { action: "Test from two clients on different subnets", expect: "Both resolve correctly — confirms server-wide fix" }
+      ]}
+    ]
+  },
+  zone_not_loading: {
+    title: "AD-integrated zone not loading",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DnsServerZone | Where ZoneName -eq '<zone>'", expect: "Zone should appear — if missing it failed to load from AD" },
+        { action: "Get-WinEvent -LogName 'DNS Server' | Where Id -in 4000,4001,4013 | Select -First 10 | Format-List", expect: "Event 4013 = waiting for AD; 4000/4001 = zone load failure" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "repadmin /showrepl", expect: "No replication failures — if failures exist, fix AD replication first" },
+        { action: "nltest /sc_verify:<domain>", expect: "Secure channel is healthy" },
+        { action: "klist", expect: "Valid Kerberos tickets present — if expired run klist purge then gpupdate /force" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "net stop dns && net start dns", expect: "DNS restarts after AD is confirmed healthy — zone loads on startup" },
+        { action: "dnscmd /zonerefresh <zone>", expect: "Forces zone reload from AD partition" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DnsServerZone | Where ZoneName -eq '<zone>'", expect: "Zone present with IsDsIntegrated: True" },
+        { action: "Resolve-DnsName <record in zone> -Server <DNS IP>", expect: "Record resolves correctly" }
+      ]}
+    ]
+  },
+  forwarder_unreachable: {
+    title: "External name resolution failing — forwarder unreachable",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Resolve-DnsName google.com -Server <DNS IP>", expect: "If timeout or SERVFAIL, external resolution is broken while internal names still work" },
+        { action: "Get-DnsServerForwarder", expect: "Lists configured forwarder IPs" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Test-NetConnection <forwarder IP> -Port 53", expect: "TcpTestSucceeded: True — if False, forwarder is unreachable" },
+        { action: "Get-DnsServerRecursion", expect: "RecursionAvailable: True — if False, recursion is disabled" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-DnsServerForwarder -IPAddress <working forwarder IP>", expect: "Replace unreachable forwarder with a reachable one" },
+        { action: "Get-DnsServerRootHint", expect: "Root hints present for fallback recursion if forwarders removed" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName google.com -Server <DNS IP>", expect: "External name resolves successfully" }
+      ]}
+    ]
+  },
+  scavenging_deleting_records: {
+    title: "Scavenging deleting valid DNS records",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DnsServerZoneAging -ZoneName <zone>", expect: "Note NoRefreshInterval and RefreshInterval values" },
+        { action: "Get-DnsServerResourceRecord -ZoneName <zone> -RRType A | Where Timestamp -ne $null | Sort Timestamp | Select -First 20", expect: "Records with old timestamps are scavenging candidates" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-DnsServerScavenging", expect: "Check ScavengingInterval and LastScavengeTime — correlate with when records disappeared" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-DnsServerZoneAging -ZoneName <zone> -Aging $true -NoRefreshInterval 7.00:00:00 -RefreshInterval 7.00:00:00", expect: "Increase No-Refresh interval to prevent premature scavenging" },
+        { action: "ipconfig /registerdns on affected clients", expect: "Clients re-register DNS records — timestamps updated" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DnsServerResourceRecord -ZoneName <zone> -RRType A | Where HostName -eq '<host>'", expect: "Record present with updated timestamp" }
+      ]}
+    ]
+  }
+};
+
+QUESTION_BANK.dns_client.playbooks = {
+  client_not_resolving: {
+    title: "Client cannot resolve any DNS names",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service Dnscache | Select Status,StartType", expect: "Status: Running" },
+        { action: "ipconfig /all", expect: "DNS Servers field shows valid IPs — not blank or 0.0.0.0" },
+        { action: "Test-NetConnection <DNS IP> -Port 53", expect: "TcpTestSucceeded: True" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "nslookup <name> <DNS IP>", expect: "If resolves with explicit IP but not default, DNS client config is wrong" },
+        { action: "Resolve-DnsName <name> -Server 8.8.8.8", expect: "If resolves via public DNS, internal DNS server is the problem" },
+        { action: "Get-DnsClientNrptPolicy", expect: "Check for NRPT rules routing queries to a wrong or unreachable server" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "ipconfig /flushdns && ipconfig /registerdns", expect: "Cache cleared and records re-registered" },
+        { action: "Restart-Service Dnscache", expect: "DNS Client service restarts cleanly" },
+        { action: "gpupdate /force", expect: "Refreshes NRPT rules and DNS suffix search list from Group Policy" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName <failing name>", expect: "Resolves correctly using default DNS server" },
+        { action: "ping <failing hostname>", expect: "Name resolves and ICMP succeeds" }
+      ]}
+    ]
+  },
+  nrpt_misdirecting: {
+    title: "NRPT rules misdirecting DNS queries",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DnsClientNrptPolicy", expect: "Lists active NRPT rules — check if any namespace matches the failing name" },
+        { action: "Get-DnsClientNrptRule", expect: "Shows source of each rule (GPO, DirectAccess, manual) and target DNS server" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Resolve-DnsName <failing name> -Server <NRPT target DNS>", expect: "If fails here, NRPT is routing to a broken DNS server" },
+        { action: "gpresult /h C:\\gpo_report.html — open and check Name Resolution Policy section", expect: "Identify which GPO is pushing the offending NRPT rule" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Remove-DnsClientNrptRule -Namespace '<namespace>' (if manually added)", expect: "Rule removed — test resolution immediately" },
+        { action: "If GPO-pushed: edit in GPMC — Computer Config > Windows Settings > Name Resolution Policy — remove or correct rule — gpupdate /force", expect: "Offending rule removed from client" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DnsClientNrptPolicy", expect: "Offending rule no longer present" },
+        { action: "Resolve-DnsName <previously failing name>", expect: "Resolves correctly via default DNS server" }
+      ]}
+    ]
+  },
+  vpn_dns_broken: {
+    title: "DNS not resolving over VPN",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ipconfig /all (after VPN connects)", expect: "VPN adapter shows correct internal DNS server IPs" },
+        { action: "Test-NetConnection <VPN DNS IP> -Port 53", expect: "TcpTestSucceeded: True — if False, DNS traffic is not routing through the tunnel" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "nslookup <internal name> <VPN DNS IP>", expect: "If resolves with explicit IP, DNS server is reachable but not being used by default" },
+        { action: "Get-DnsClientNrptRule | Where Source -eq 'DirectAccess'", expect: "VPN client may be injecting NRPT rules — check namespace and target DNS server" },
+        { action: "Get-VpnConnection | Select DnsSuffix,SplitTunneling", expect: "DnsSuffix is set and SplitTunneling is configured correctly" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Get-VpnServerConfiguration | Select IPv4DnsServer", expect: "Correct internal DNS IP is being pushed to VPN clients" },
+        { action: "Add-DnsClientNrptRule -Namespace '<domain>' -NameServers '<VPN DNS IP>'", expect: "Internal namespace now routes to internal DNS over VPN" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName <internal hostname> (while VPN connected)", expect: "Resolves to correct internal IP" },
+        { action: "Resolve-DnsName <external hostname> (while VPN connected)", expect: "Still resolves — split tunnel DNS working correctly" }
+      ]}
+    ]
+  },
+  stale_cache_nxdomain: {
+    title: "Stale negative cache (NXDOMAIN) blocking resolution",
+    severity: "low",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DnsClientCache | Where Name -eq '<failing name>'", expect: "Entry present with Status: ResourceNotFound — confirms stale negative cache" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Resolve-DnsName <name> -Server <DNS IP> -DnsOnly", expect: "If resolves at server but not client, client cache is the issue" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "ipconfig /flushdns", expect: "Clears entire client resolver cache including negative entries" },
+        { action: "Restart-Service Dnscache", expect: "Full cache reset if flush alone does not clear the entry" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName <previously failing name>", expect: "Resolves correctly — no longer returning NXDOMAIN" }
+      ]}
+    ]
+  }
+};
+
 // ─── Technology category groupings for UI ────────────────────────────────────
 const TECH_CATEGORIES = {
   "Core Networking":  ["dns_server","dns_client","dhcp_server","dhcp_client","tcpip","smb","dfs"],
@@ -1061,3 +1246,842 @@ const TECH_CATEGORIES = {
 };
 
 if (typeof module !== 'undefined') module.exports = { QUESTION_BANK, TECH_CATEGORIES };
+
+// -- DHCP SERVER playbooks ----------------------------------------------------
+QUESTION_BANK.dhcp_server.playbooks = {
+  clients_getting_apipa: {
+    title: "Clients getting APIPA (169.254.x.x) - no IP assigned",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service DHCPServer | Select Status,StartType", expect: "Status: Running, StartType: Automatic" },
+        { action: "Get-DhcpServerInDC", expect: "This server listed as authorized - if missing it is deauthorized" },
+        { action: "Get-DhcpServerv4ScopeStatistics -ScopeId <scope>", expect: "PercentageInUse below 100 and Free > 0" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "ipconfig /release && ipconfig /renew on affected client", expect: "If DHCP server IP appears, server is responding - if APIPA persists, relay or scope issue" },
+        { action: "Get-WinEvent -LogName System | Where Id -in 1046,1055,1063 | Select -First 5 | Format-List", expect: "1046 = not authorized; 1055 = cannot contact AD; 1063 = authorized" },
+        { action: "Confirm IP Helper address on router interface for client VLAN", expect: "ip helper-address points to correct DHCP server IP - even one transposed digit causes APIPA" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Add-DhcpServerInDC -DnsName <server FQDN> -IPAddress <IP>", expect: "Server re-authorized - verify with Get-DhcpServerInDC" },
+        { action: "Set-DhcpServerv4Scope -ScopeId <scope> -State Active", expect: "Scope set to Active state" },
+        { action: "Restart-Service DHCPServer", expect: "Service restarts - Event ID 1063 confirms authorized" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ipconfig /release && ipconfig /renew on affected client", expect: "Client receives valid IP from correct scope" },
+        { action: "Get-DhcpServerv4Lease -ScopeId <scope> | Where ClientId -eq '<MAC>'", expect: "Lease present with AddressState: Active" }
+      ]}
+    ]
+  },
+  scope_exhausted: {
+    title: "DHCP scope exhausted - no free addresses",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DhcpServerv4ScopeStatistics -ScopeId <scope>", expect: "PercentageInUse: 100, Free: 0 - confirms exhaustion" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-DhcpServerv4Lease -ScopeId <scope> | Where AddressState -ne 'Active' | Measure-Object", expect: "Count of Expired or Released leases that can be reclaimed" },
+        { action: "Get-DhcpServerv4Scope -ScopeId <scope> | Select LeaseDuration", expect: "If lease duration is very long (e.g. 8 days), addresses are held too long" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-DhcpServerv4Scope -ScopeId <scope> -LeaseDuration 1.00:00:00", expect: "Reduce lease duration to 1 day to reclaim addresses faster" },
+        { action: "Set-DhcpServerv4Scope -ScopeId <scope> -EndRange <new higher IP>", expect: "Expand scope range if subnet allows - verify no overlap with static assignments" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DhcpServerv4ScopeStatistics -ScopeId <scope>", expect: "Free > 0 - new clients can now receive leases" }
+      ]}
+    ]
+  },
+  failover_interrupted: {
+    title: "DHCP failover partner - Communication Interrupted",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-DhcpServerv4Failover", expect: "State: CommunicationInterrupted - confirms partner sync is broken" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Test-NetConnection <partner server IP> -Port 647", expect: "TcpTestSucceeded: True - if False, TCP 647 is blocked between partners" },
+        { action: "Get-Service DHCPServer on partner server", expect: "Service running on partner - if stopped that is the root cause" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Invoke-DhcpServerv4FailoverReplication -Name <failover relationship> -Force", expect: "Forces sync - State should return to Normal" },
+        { action: "If partner is permanently down: Set-DhcpServerv4FailoverScope -ScopeId <scope> -State PartnerDown", expect: "This server takes full ownership - use only when partner is confirmed dead" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DhcpServerv4Failover", expect: "State: Normal - both partners in sync" }
+      ]}
+    ]
+  },
+  database_corrupt: {
+    title: "DHCP database corrupt - service failing to start",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-WinEvent -LogName System | Where Id -in 1014,1016 | Select -First 5 | Format-List", expect: "Event 1014/1016 = database corruption detected" },
+        { action: "Get-DhcpServerDatabase", expect: "Note DatabasePath and BackupPath" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Stop-Service DHCPServer", expect: "Service stops cleanly" },
+        { action: "Check C:\\Windows\\System32\\dhcp\\ for dhcp.mdb size and last modified date", expect: "If file is 0 bytes or very recent with no leases, database is corrupt or empty" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "jetcomp.exe dhcp.mdb dhcp_new.mdb (from %windir%\\System32\\dhcp)", expect: "Compacts and repairs the Jet database - rename result back to dhcp.mdb" },
+        { action: "If jetcomp fails: restore from backup - copy files from BackupPath to DatabasePath", expect: "Backup database restored - some recent leases may be lost" },
+        { action: "Start-Service DHCPServer", expect: "Service starts cleanly - no Event 1014/1016" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-DhcpServerv4Scope", expect: "All scopes visible and Active" },
+        { action: "Get-DhcpServerv4Lease -ScopeId <scope> | Select -First 5", expect: "Leases present and readable" }
+      ]}
+    ]
+  }
+};
+
+// -- DHCP CLIENT playbooks ----------------------------------------------------
+QUESTION_BANK.dhcp_client.playbooks = {
+  no_ip_assigned: {
+    title: "Client not receiving any IP address",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service Dhcp | Select Status,StartType", expect: "Status: Running" },
+        { action: "ipconfig /all", expect: "DHCP Enabled: Yes - IP shows 169.254.x.x (APIPA) or 0.0.0.0" },
+        { action: "ipconfig /release && ipconfig /renew", expect: "Watch for error message - note exact text" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Sort TimeCreated -Desc | Select -First 20 | Format-List", expect: "Look for DHCP NACK, timeout, or no offer received events" },
+        { action: "arp -a", expect: "No duplicate IP-to-MAC mappings - if duplicates exist, IP conflict is preventing lease" },
+        { action: "Try a different physical switchport", expect: "If IP received on different port, original port has VLAN or 802.1x issue" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Restart-Service Dhcp", expect: "DHCP Client service restarts cleanly" },
+        { action: "Restart-NetAdapter -Name '<adapter>' -Confirm:$false", expect: "NIC resets - forces fresh DHCP DISCOVER" },
+        { action: "netsh int ip reset C:\\ip_reset.log && netsh winsock reset (if above fails)", expect: "TCP/IP stack reset - requires reboot" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ipconfig /all", expect: "Valid IP from correct scope, DHCP Server field populated, Lease Obtained timestamp present" }
+      ]}
+    ]
+  },
+  lease_renewal_failing: {
+    title: "DHCP lease renewal failing - intermittent APIPA after sleep",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ipconfig /all after wake from sleep", expect: "IP shows 169.254.x.x or previous lease expired - confirms renewal failure" },
+        { action: "Get-NetAdapterPowerManagement -Name '<NIC>' | Select AllowComputerToTurnOffDevice", expect: "True means OS is powering off NIC during sleep" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Sort TimeCreated -Desc | Select -First 10 | Format-List", expect: "Events showing renewal attempt failed or no response from server after wake" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-NetAdapterPowerManagement -Name '<NIC>' -WakeOnMagicPacket Disabled -D0PacketCoalescing Disabled", expect: "NIC power management disabled - NIC stays active through sleep/wake" },
+        { action: "Device Manager > NIC > Power Management > uncheck Allow the computer to turn off this device to save power", expect: "Alternative GUI method - same effect" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Sleep and wake the machine then ipconfig /all", expect: "Valid IP retained or renewed immediately after wake - no APIPA" }
+      ]}
+    ]
+  },
+  wrong_scope_ip: {
+    title: "Client receiving IP from wrong scope or VLAN",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ipconfig /all", expect: "IP address subnet does not match expected VLAN - e.g. getting 10.0.1.x when should be 10.0.5.x" },
+        { action: "Confirm switchport VLAN assignment on the switch", expect: "Access VLAN matches the intended DHCP scope subnet" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Confirm IP Helper address on the router interface for the correct VLAN", expect: "ip helper-address points to DHCP server - if missing on correct VLAN interface, relay is not forwarding" },
+        { action: "Get-DhcpServerv4Scope | Select ScopeId,Name,StartRange,EndRange,SubnetMask", expect: "Scope exists for the correct subnet and is Active" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Correct the switchport VLAN on the switch: switchport access vlan <correct VLAN>", expect: "Port now in correct VLAN - client will get IP from correct scope on next renew" },
+        { action: "ipconfig /release && ipconfig /renew on client", expect: "Client gets IP from correct scope" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ipconfig /all", expect: "IP address is in the correct subnet for the intended VLAN" }
+      ]}
+    ]
+  }
+};
+
+// -- TCP/IP playbooks ---------------------------------------------------------
+QUESTION_BANK.tcpip.playbooks = {
+  no_connectivity: {
+    title: "Complete loss of network connectivity",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ping 127.0.0.1", expect: "Reply received - confirms TCP/IP stack is functional" },
+        { action: "ping <own IP>", expect: "Reply received - confirms NIC and local stack are working" },
+        { action: "ping <default gateway>", expect: "Reply received - confirms Layer 2 and Layer 3 local connectivity" },
+        { action: "ping 8.8.8.8", expect: "Reply received - confirms routing beyond the gateway" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "ipconfig /all", expect: "Valid IP, subnet mask, and default gateway assigned - if missing, DHCP or static config issue" },
+        { action: "Get-NetAdapter | Select Name,Status,LinkSpeed", expect: "Status: Up and LinkSpeed shows a value - if Disconnected, physical or driver issue" },
+        { action: "Get-NetFirewallProfile | Select Name,Enabled,DefaultOutboundAction", expect: "If DefaultOutboundAction: Block, firewall is dropping outbound traffic" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "netsh int ip reset C:\\ip_reset.log && netsh winsock reset", expect: "TCP/IP stack and Winsock reset - requires reboot" },
+        { action: "Set-NetFirewallProfile -All -Enabled False (test only - re-enable immediately after)", expect: "If connectivity restored, firewall rule is the cause - identify and fix the specific rule" },
+        { action: "Update NIC driver from OEM website", expect: "Driver reinstalled - reboot and retest" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ping 8.8.8.8", expect: "Reply received with consistent RTT" },
+        { action: "Test-NetConnection -ComputerName google.com -Port 443", expect: "TcpTestSucceeded: True" }
+      ]}
+    ]
+  },
+  partial_connectivity: {
+    title: "Partial connectivity - some IPs reachable, others not",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ping <gateway> - ping <reachable IP> - ping <unreachable IP>", expect: "Gateway and some IPs reply - specific destinations fail - confirms routing or firewall issue" },
+        { action: "route print", expect: "Review IPv4 routing table for missing routes, conflicting routes, or wrong gateway" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "tracert <unreachable IP>", expect: "Identify where hops stop - last responding hop is closest to the problem" },
+        { action: "Get-NetRoute | Where DestinationPrefix -eq '0.0.0.0/0'", expect: "Single default route with correct NextHop - multiple equal-metric default routes cause asymmetric routing" },
+        { action: "netsh wfp show state file=C:\\wfp_state.xml", expect: "Check for WFP callout filters blocking specific destination ranges" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "route delete <conflicting route> then route add <correct route>", expect: "Routing table corrected - retest affected destinations" },
+        { action: "Get-NetIPsecMainModeSA | Remove-NetIPsecMainModeSA", expect: "Flush stale IPsec SAs - allows re-negotiation for IPsec-protected paths" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ping <previously unreachable IP>", expect: "Reply received" },
+        { action: "tracert <previously unreachable IP>", expect: "Full path visible with no dropped hops" }
+      ]}
+    ]
+  },
+  mtu_blackhole: {
+    title: "MTU blackhole - large packets silently dropped",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ping <destination> -f -l 1472", expect: "If fails with 'Packet needs to be fragmented but DF set' - MTU blackhole confirmed" },
+        { action: "ping <destination> -f -l 1200", expect: "If this succeeds but 1472 fails - path MTU is between 1200 and 1472" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Binary search: ping -f -l 1400, 1300, 1450, 1460", expect: "Find the exact largest packet size that succeeds - that is the path MTU minus 28 bytes (IP+ICMP headers)" },
+        { action: "tracert <destination>", expect: "Identify which hop is dropping large packets - intermediate firewall or router blocking ICMP Type 3 Code 4" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "netsh int ipv4 set subinterface '<NIC>' mtu=1400 store=persistent", expect: "Set interface MTU below the blackhole threshold - adjust upward incrementally to find optimal value" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "ping <destination> -f -l 1372 (MTU 1400 minus 28)", expect: "Succeeds - large packets now flowing correctly" },
+        { action: "Test application that was failing (e.g. file transfer, HTTPS)", expect: "Application works correctly at full speed" }
+      ]}
+    ]
+  },
+  high_latency_packet_loss: {
+    title: "High latency or intermittent packet loss",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "pathping <destination>", expect: "Per-hop latency and loss percentages over 250 probes - identifies which hop introduces loss" },
+        { action: "Get-NetAdapterStatistics -Name '<NIC>' | Select ReceivedPacketErrors,OutboundPacketErrors,InboundDiscardedPackets", expect: "Non-zero error or discard counts indicate NIC or driver issue" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh int tcp show global", expect: "Check AutoTuningLevel - if Experimental or HighlyRestricted, TCP window scaling may be causing throughput issues" },
+        { action: "Get-NetAdapterAdvancedProperty -Name '<NIC>' | Where DisplayName -like '*Offload*'", expect: "Check if LSO or RSS offload settings are causing packet corruption" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "netsh int tcp set global autotuninglevel=normal", expect: "Reset TCP auto-tuning to normal - resolves most throughput and latency issues" },
+        { action: "Disable-NetAdapterLso -Name '<NIC>' -IPv4 -IPv6", expect: "Disable LSO if NIC driver is causing TCP segmentation issues" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "pathping <destination>", expect: "Loss percentage at 0% or near 0% - latency within expected range" },
+        { action: "Get-NetAdapterStatistics -Name '<NIC>' | Select ReceivedPacketErrors", expect: "Error count stable and not incrementing" }
+      ]}
+    ]
+  }
+};
+
+// -- SMB playbooks ------------------------------------------------------------
+QUESTION_BANK.smb.playbooks = {
+  access_denied: {
+    title: "Access Denied connecting to SMB share",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Test-NetConnection -ComputerName <server> -Port 445", expect: "TcpTestSucceeded: True - if False, network or firewall is blocking port 445" },
+        { action: "net use \\\\<server>\\<share>", expect: "Note exact error code - 0x5 = Access Denied, 0x35 = Path Not Found" },
+        { action: "Try accessing by IP: \\\\<server IP>\\<share>", expect: "If works by IP but not hostname, DNS or Kerberos SPN issue" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "klist purge then retry access", expect: "If access restored after purge, stale Kerberos ticket was the cause" },
+        { action: "Get-SmbShareAccess -Name '<share>'", expect: "Confirm user or group has at least Read permission at share level" },
+        { action: "icacls '<share path>' on the server", expect: "Confirm NTFS permissions grant access to the user - both share AND NTFS must allow" },
+        { action: "whoami /all on the affected client", expect: "Confirm user is member of the expected groups - token may not reflect recent group changes" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Grant-SmbShareAccess -Name '<share>' -AccountName '<user or group>' -AccessRight Full", expect: "Share-level permission granted" },
+        { action: "icacls '<path>' /grant '<user>:(OI)(CI)M' on the server", expect: "NTFS permission granted - both layers now allow access" },
+        { action: "klist purge on client then retry", expect: "Fresh Kerberos ticket obtained with updated group membership" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "net use \\\\<server>\\<share>", expect: "Command completes successfully - no error code" },
+        { action: "Get-SmbConnection | Where ShareName -eq '<share>'", expect: "Active session present with correct UserName" }
+      ]}
+    ]
+  },
+  path_not_found: {
+    title: "Network path not found - share unreachable",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Test-NetConnection -ComputerName <server> -Port 445", expect: "TcpTestSucceeded: True - if False, TCP 445 is blocked" },
+        { action: "Get-SmbShare -Name '<share>' on the server", expect: "Share exists and path is valid - if not found, share was removed or renamed" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "ping <server> and nslookup <server>", expect: "Server resolves and responds - if not, DNS or network issue" },
+        { action: "Get-Service LanmanServer on the file server", expect: "Status: Running - if stopped, Server service is down" },
+        { action: "Get-NetFirewallRule | Where DisplayName -like '*File and Printer*' | Select Enabled,Direction,Action", expect: "Inbound rules Enabled and Action: Allow" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Start-Service LanmanServer", expect: "Server service started - shares become accessible" },
+        { action: "New-SmbShare -Name '<share>' -Path '<path>' -FullAccess 'Everyone' (if share was deleted)", expect: "Share recreated - apply correct ACLs after" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "net use \\\\<server>\\<share>", expect: "Connects successfully" }
+      ]}
+    ]
+  },
+  slow_performance: {
+    title: "SMB file transfer slow or high latency",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-SmbConnection | Select ServerName,Dialect,Signing,Encrypted,NumOpens", expect: "Dialect should be 3.1.1 or 3.0.2 - if 1.0 or 2.0, negotiation fell back to older version" },
+        { action: "Get-SmbMultichannelConnection | Select ServerName,State,Throughput,Latency", expect: "State: Connected with multiple entries if Multichannel is active" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-SmbClientConfiguration | Select EnableMultiChannel,EnableLargeMtu", expect: "Both should be True - if False, Multichannel and large MTU are disabled" },
+        { action: "Get-SmbBandwidthLimit", expect: "Check if bandwidth throttling rules are limiting throughput" },
+        { action: "Check if AV is scanning files in real time on the server", expect: "AV exclusion for share path may be needed - test with real-time protection temporarily disabled" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-SmbClientConfiguration -EnableMultiChannel $true -Confirm:$false", expect: "Multichannel enabled - requires both client and server NICs to have valid routes to each other" },
+        { action: "Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force", expect: "SMB1 disabled - forces negotiation to SMB2/3 which has better performance" },
+        { action: "Add share path to AV exclusion list on the server", expect: "AV no longer scanning every file access - latency drops significantly" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-SmbMultichannelConnection", expect: "Multiple connections active with higher aggregate Throughput" },
+        { action: "Copy a large file and measure transfer rate", expect: "Transfer rate matches expected network bandwidth" }
+      ]}
+    ]
+  },
+  signing_mismatch: {
+    title: "SMB signing mismatch blocking connections",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-SmbServerConfiguration | Select RequireSecuritySignature,EnableSMB2Protocol", expect: "Note RequireSecuritySignature value on server" },
+        { action: "Get-SmbClientConfiguration | Select RequireSecuritySignature", expect: "Note RequireSecuritySignature value on client" },
+        { action: "Get-WinEvent -LogName Microsoft-Windows-SMBClient/Security | Select -First 10 | Format-List", expect: "Look for signing negotiation failure events" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Capture SMB trace: netsh trace start capture=yes provider=Microsoft-Windows-SMBClient tracefile=C:\\smb.etl - reproduce - stop", expect: "ETL captured for analysis" },
+        { action: "In trace look for STATUS_ACCESS_DENIED (0xC0000022) during SessionSetup", expect: "Signing policy mismatch causes auth failure at session setup" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-SmbServerConfiguration -RequireSecuritySignature $true -Force on both client and server", expect: "Align signing requirement - both sides now require signing" },
+        { action: "If legacy clients cannot sign: Set-SmbServerConfiguration -RequireSecuritySignature $false -EnableSecuritySignature $true -Force", expect: "Signing enabled but not required - allows unsigned legacy clients to connect" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-SmbConnection | Select ServerName,Signing", expect: "Signing: True on active connections" },
+        { action: "net use \\\\<server>\\<share>", expect: "Connects successfully without error" }
+      ]}
+    ]
+  }
+};
+
+// -- DFS playbooks ------------------------------------------------------------
+QUESTION_BANK.dfs.playbooks = {
+  namespace_inaccessible: {
+    title: "DFS namespace root inaccessible",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service Dfs | Select Status,StartType", expect: "Status: Running on all namespace servers" },
+        { action: "Get-DfsnRoot | Select Path,State,Type", expect: "State: Online - if Offline, namespace is disabled" },
+        { action: "Test-NetConnection -ComputerName <namespace server> -Port 445", expect: "TcpTestSucceeded: True - namespace is served over SMB" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "dfsdiag /testreferral /dfspath:\\\\<domain>\\<namespace> /full", expect: "All namespace servers return referrals - failed servers listed explicitly" },
+        { action: "Get-SmbShare | Where Name -eq '<namespace>'", expect: "Share exists on namespace server - if missing, the root share was deleted" },
+        { action: "repadmin /showrepl", expect: "AD replication healthy - domain-based namespace objects stored in domain partition" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Start-Service Dfs", expect: "DFS Namespace service started" },
+        { action: "New-SmbShare -Name '<namespace>' -Path '<path>' if root share was deleted", expect: "Root share recreated - namespace becomes accessible" },
+        { action: "dfsutil /root:\\\\<domain>\\<namespace> /addroot /server:<server> /share:<namespace>", expect: "Namespace server re-added if it was removed" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "dfsutil /pktinfo on an affected client", expect: "Referral entries present for the namespace root" },
+        { action: "dir \\\\<domain>\\<namespace>", expect: "Namespace contents visible" }
+      ]}
+    ]
+  },
+  wrong_site_target: {
+    title: "DFS returning wrong site folder target",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "dfsutil /pktinfo on affected client", expect: "Shows which target server is being returned - confirm it is the wrong site" },
+        { action: "nltest /dsgetsite", expect: "Shows client AD site - if wrong site, client is in wrong subnet-to-site mapping" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-DfsnFolderTarget -Path '\\\\<domain>\\<namespace>\\<folder>'", expect: "Lists all targets and their ReferralPriorityClass - check if local site target has correct priority" },
+        { action: "Check AD Sites and Services - confirm client subnet is mapped to correct site", expect: "Subnet object exists and maps to the correct site containing the preferred DFS target" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-DfsnFolderTarget -Path '\\\\<domain>\\<namespace>\\<folder>' -TargetPath '\\\\<correct server>\\<share>' -ReferralPriorityClass sitecost-high", expect: "Local site target set to highest priority" },
+        { action: "Add missing subnet to correct site in AD Sites and Services", expect: "Client subnet now maps to correct site - DFS referral returns local target" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "dfsutil /pktinfo on affected client after flushing: dfsutil /pktflush", expect: "Referral now points to correct site target server" }
+      ]}
+    ]
+  },
+  replication_backlog: {
+    title: "DFS Replication backlog growing",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service DFSR | Select Status,StartType", expect: "Status: Running on all replication members" },
+        { action: "dfsrdiag backlog /sendingmember:<A> /receivingmember:<B> /rgname:<group> /rfname:<folder>", expect: "Backlog count - if above 100 and growing, replication is falling behind" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-DfsrMembership | Select ComputerName,FolderName,StagingPath,StagingSizeInMb,CurrentStageSizeInMb", expect: "If CurrentStageSizeInMb near StagingSizeInMb, staging quota is the bottleneck" },
+        { action: "Get-DfsrConnection | Select SourceComputerName,DestinationComputerName,State,LastSuccessfulSync", expect: "State: Normal and LastSuccessfulSync recent - if Disconnected, connection is broken" },
+        { action: "Check for locked files on replication members", expect: "Files held open by AV or applications prevent DFSR from staging changes" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-DfsrMembership -GroupName <g> -FolderName <f> -ComputerName <m> -StagingPathQuotaInMB 16384 -Force", expect: "Staging quota increased - backlog can now be processed" },
+        { action: "dfsrdiag syncnow /partner:<partner> /rgname:<group> /rfname:<folder> /time:1", expect: "Forces immediate sync attempt - monitor backlog count" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "dfsrdiag backlog /sendingmember:<A> /receivingmember:<B> /rgname:<group> /rfname:<folder>", expect: "Backlog count decreasing toward 0" },
+        { action: "Get-DfsrConnection | Select LastSuccessfulSync", expect: "LastSuccessfulSync timestamp is recent" }
+      ]}
+    ]
+  },
+  sysvol_not_replicating: {
+    title: "SYSVOL not replicating between DCs",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "DFSRMIG /getmigrationstate", expect: "All DCs in Eliminated state (3) - if not, SYSVOL migration from FRS to DFSR is incomplete" },
+        { action: "Get-Service DFSR | Select Status on each DC", expect: "Status: Running on all DCs" },
+        { action: "dfsrdiag replicationstate /member:<DC>", expect: "No errors or IN ERROR state" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "repadmin /showrepl", expect: "AD replication healthy - DFSR cannot sync SYSVOL if AD replication is broken" },
+        { action: "Get-DfsrMembership | Where GroupName -like '*SYSVOL*' | Select ComputerName,State,ContentPath", expect: "State: Normal on all DCs - if IN ERROR, non-authoritative restore needed" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "dfsrdiag pollad /member:<DC>", expect: "Forces DFSR to re-read configuration from AD - resolves config drift" },
+        { action: "For IN ERROR state: stop DFSR, set BurFlags D2 in registry at HKLM\\SYSTEM\\CurrentControlSet\\Services\\DFSR\\Parameters\\SysVols\\Seeding SysVol\\<vol>\\Sysvol Subscription\\DirectoryToSubscribeTo, restart DFSR", expect: "Non-authoritative restore initiated - DC resyncs SYSVOL from authoritative partner" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "dir \\\\<DC>\\SYSVOL\\<domain>\\Policies", expect: "GPO folders visible and consistent across all DCs" },
+        { action: "dfsrdiag replicationstate /member:<DC>", expect: "No errors - replication state clean" }
+      ]}
+    ]
+  }
+};
+
+// -- NPS (RADIUS) playbooks ---------------------------------------------------
+QUESTION_BANK.nps.playbooks = {
+  auth_rejected_reason_code: {
+    title: "Authentication rejected - NPS Event 6273",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service IAS | Select Status,StartType", expect: "Status: Running" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 | Select -First 5 | Format-List", expect: "Note Reason Code field - this drives the entire investigation" },
+        { action: "Reason Code reference: 16=EAP method mismatch, 22=account not found, 23=wrong password, 48=no policy matched, 65=EAP negotiation failed", expect: "Match reason code to root cause category" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-ADUser <username> -Properties Enabled,LockedOut,PasswordExpired,AccountExpirationDate | Select *", expect: "Account enabled, not locked, password not expired" },
+        { action: "netsh nps show client", expect: "NAS device IP listed with correct shared secret - trailing space in secret causes all auths to fail" },
+        { action: "netsh nps show np", expect: "Network policies listed in correct order - first matching policy wins" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Unlock-ADAccount -Identity <user> (if Reason 23 and account locked)", expect: "Account unlocked - retry authentication" },
+        { action: "Verify and re-enter RADIUS shared secret on both NPS and NAS device (if Reason 16 or auth fails silently)", expect: "Secrets match byte-for-byte including case and special characters" },
+        { action: "Reorder or fix NPS Network Policy conditions to match the request attributes (if Reason 48)", expect: "Policy now matches - check NAS-Port-Type, Windows Groups, and NAS-IP-Address conditions" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 | Select -First 3 | Format-List", expect: "Event 6272 = authentication succeeded - confirms fix worked" }
+      ]}
+    ]
+  },
+  no_radius_response: {
+    title: "No RADIUS response - NAS timing out",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service IAS | Select Status", expect: "Status: Running - if stopped, NPS is not processing requests" },
+        { action: "Test-NetConnection <NPS IP> -Port 1812 (from NAS or a machine on same segment)", expect: "UDP 1812 reachable - note: Test-NetConnection tests TCP; use portqry -n <NPS IP> -e 1812 -p udp for UDP" },
+        { action: "Get-NetFirewallRule | Where DisplayName -like '*RADIUS*' | Select Enabled,Direction,Action", expect: "Inbound UDP 1812 rule Enabled and Allow" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh nps show client", expect: "NAS IP is registered as a RADIUS client - if missing, NPS silently drops all requests from that IP" },
+        { action: "Capture RADIUS trace: netsh trace start capture=yes tracefile=C:\\nps.etl - trigger auth - stop", expect: "Confirm RADIUS Access-Request packets arriving at NPS server on UDP 1812" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Add-DhcpServerv4Reservation (if NAS IP not registered): netsh nps add client name=<NAS> address=<IP> sharedsecret=<secret>", expect: "NAS registered - NPS now processes requests from that IP" },
+        { action: "New-NetFirewallRule -DisplayName 'NPS RADIUS' -Direction Inbound -Protocol UDP -LocalPort 1812 -Action Allow (if firewall blocking)", expect: "Firewall rule created - UDP 1812 now allowed inbound" },
+        { action: "Restart-Service IAS", expect: "NPS service restarted - Event ID 4400 confirms started" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -in 6272,6273 | Select -First 3 | Format-List", expect: "Authentication events now appearing - NPS is processing requests" }
+      ]}
+    ]
+  },
+  eap_tls_cert_failure: {
+    title: "EAP-TLS certificate authentication failing",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 | Select -First 3 | Format-List", expect: "Reason Code 65 = EAP negotiation failed; note the full reason description" },
+        { action: "Get-ChildItem Cert:\\LocalMachine\\My | Where Subject -like '*<NPS FQDN>*' | Select Subject,NotAfter,EnhancedKeyUsageList", expect: "NPS server cert present, not expired, has Server Authentication EKU" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "certutil -verify -urlfetch C:\\nps_server.cer", expect: "CRL and OCSP checks pass - if CRL unreachable, NPS rejects EAP-TLS by default" },
+        { action: "Get-ChildItem Cert:\\LocalMachine\\Root | Where Subject -like '*<CA name>*'", expect: "Issuing CA root cert in Trusted Root CAs on NPS server" },
+        { action: "On client: certutil -store My - check client cert Subject, NotAfter, and EKU", expect: "Client cert has Client Authentication EKU (OID 1.3.6.1.5.5.7.3.2), not expired, correct SAN or CN" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Re-enroll NPS server cert via certlm.msc > Personal > Request new certificate (if expired)", expect: "New cert enrolled - update EAP type in NPS Network Policy to select new cert" },
+        { action: "Push CA root cert to clients via GPO: Computer Config > Windows Settings > Security Settings > Public Key Policies > Trusted Root CAs", expect: "Clients now trust the NPS server certificate chain" },
+        { action: "Enable NPS verbose trace to confirm exact failure point: netsh nps set tracing mode=all - reproduce - netsh nps set tracing mode=none", expect: "C:\\Windows\\tracing\\nps.log shows IAS_AUTH_FAILED with specific cert error" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 | Select -First 3 | Format-List", expect: "Event 6272 = authentication succeeded with EAP-TLS" }
+      ]}
+    ]
+  },
+  wrong_vlan_assigned: {
+    title: "Wrong VLAN assigned after successful authentication",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 | Select -First 3 | Format-List", expect: "Authentication succeeds (6272) but client ends up in wrong VLAN" },
+        { action: "On switch: show authentication sessions interface <port>", expect: "Shows assigned VLAN - compare against expected VLAN" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh nps show np - review RADIUS attributes on the matching Network Policy", expect: "Check Tunnel-Type (must be 13=VLAN), Tunnel-Medium-Type (must be 6=802), Tunnel-Pvt-Group-ID (VLAN ID as string)" },
+        { action: "Confirm which Network Policy is matching: check Filter-Id field in Event 6272", expect: "Policy name shown - verify it has the correct VLAN attributes" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "In NPS console: Network Policy > Settings > RADIUS Attributes - set Tunnel-Type=13, Tunnel-Medium-Type=6, Tunnel-Pvt-Group-ID=<VLAN ID as string>", expect: "VLAN attributes correctly configured - VLAN ID must be a string not an integer" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Re-authenticate the client - on switch: show authentication sessions interface <port>", expect: "Correct VLAN now assigned after authentication" },
+        { action: "ipconfig /all on client", expect: "IP address is in the correct VLAN subnet" }
+      ]}
+    ]
+  }
+};
+
+// -- 802.1x WIRED playbooks ---------------------------------------------------
+QUESTION_BANK.dot1x_wired.playbooks = {
+  port_unauthorized: {
+    title: "Switchport stuck in unauthorized state - no network",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service dot3svc | Select Status,StartType", expect: "Status: Running, StartType: Automatic" },
+        { action: "On switch: show dot1x interface <port>", expect: "Auth state: Unauthorized - confirms 802.1x is blocking the port" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 5633 | Select -First 3 | Format-List", expect: "Event 5633 = 802.1x auth failed - note the error code" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS server | Select -First 3 | Format-List", expect: "Reason Code identifies root cause - 22=account not found, 23=wrong password, 48=no policy matched, 65=EAP failure" },
+        { action: "netsh lan show profiles", expect: "Correct 802.1x wired profile present on client" },
+        { action: "gpresult /r | findstr -i '802.3'", expect: "Wired Network IEEE 802.3 GPO listed in Applied GPOs" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-Service dot3svc -StartupType Automatic; Start-Service dot3svc", expect: "Wired AutoConfig service running" },
+        { action: "gpupdate /force /target:computer", expect: "Wired 802.1x profile refreshed from GPO" },
+        { action: "On switch: shutdown then no shutdown on the port", expect: "Forces new authentication cycle after client-side fix" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "On switch: show authentication sessions interface <port>", expect: "Auth state: Authorized, correct VLAN assigned" },
+        { action: "ipconfig /all on client", expect: "Valid IP address received from correct VLAN scope" }
+      ]}
+    ]
+  },
+  eap_tls_cert_failure_wired: {
+    title: "EAP-TLS machine certificate failure on wired 802.1x",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "certutil -store My on the client", expect: "Machine cert present, not expired, Subject matches machine FQDN" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS | Select -First 3 | Format-List", expect: "Reason Code 65 = EAP-TLS negotiation failed" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "certutil -store My | findstr 'EKU'", expect: "Client Authentication OID 1.3.6.1.5.5.7.3.2 present in Enhanced Key Usage" },
+        { action: "certutil -store -enterprise NTAuthCertificates", expect: "Issuing CA present in NTAuth store - required for Kerberos-based EAP-TLS" },
+        { action: "certutil -verify -urlfetch <client cert file>", expect: "CRL and OCSP checks pass - if CRL unreachable, auth fails" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "certlm.msc > Personal > All Tasks > Request New Certificate", expect: "New machine cert enrolled from correct template with Client Authentication EKU" },
+        { action: "gpupdate /force", expect: "Auto-enrollment triggers if cert template is published via GPO" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "On switch: show authentication sessions interface <port>", expect: "Auth state: Authorized using dot1x method" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 on NPS | Select -First 3", expect: "Event 6272 = authentication succeeded" }
+      ]}
+    ]
+  },
+  vlan_not_assigned: {
+    title: "Wrong VLAN assigned after wired 802.1x authentication",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "On switch: show authentication sessions interface <port>", expect: "Auth succeeds but VLAN shown is wrong" },
+        { action: "ipconfig /all on client", expect: "IP is in wrong subnet - confirms VLAN assignment issue not auth issue" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh nps show np - check RADIUS attributes on matching Network Policy", expect: "Tunnel-Type=13, Tunnel-Medium-Type=6, Tunnel-Pvt-Group-ID=<VLAN ID as string>" },
+        { action: "On switch: show running-config interface <port>", expect: "Confirm switchport is configured to accept RADIUS-assigned VLAN" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "In NPS console: correct Tunnel-Pvt-Group-ID to the correct VLAN ID as a string value", expect: "VLAN ID corrected - note it must be a string not integer type" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Re-authenticate: on switch shutdown then no shutdown on port", expect: "Client re-authenticates and receives correct VLAN" },
+        { action: "ipconfig /all on client", expect: "IP address in correct VLAN subnet" }
+      ]}
+    ]
+  },
+  mab_fallback_failing: {
+    title: "MAB fallback not working for non-802.1x devices",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "On switch: show authentication sessions interface <port>", expect: "No session or session stuck - MAB not triggering after 802.1x timeout" },
+        { action: "On switch: show dot1x interface <port>", expect: "Confirm dot1x timeout value and MAB fallback configured" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "On switch: show running-config interface <port>", expect: "authentication order dot1x mab and authentication fallback configured" },
+        { action: "netsh nps show np - check for MAB policy", expect: "Network Policy exists with NAS-Port-Type=Ethernet and condition matching MAC address format used by this switch vendor" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "On switch: add 'authentication event no-response action authorize vlan <restricted VLAN>'", expect: "Devices that fail both dot1x and MAB placed in restricted VLAN instead of blocked" },
+        { action: "Register device MAC in NPS or switch local MAC database for MAB", expect: "MAC address recognized - MAB authentication succeeds" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "On switch: show authentication sessions interface <port>", expect: "Session present with Method: mab and correct VLAN assigned" }
+      ]}
+    ]
+  }
+};
+
+// -- 802.1x WIRELESS playbooks ------------------------------------------------
+QUESTION_BANK.dot1x_wireless.playbooks = {
+  auth_fails_after_associate: {
+    title: "Client associates to SSID but 802.1x authentication fails",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-Service WLANSVC | Select Status,StartType", expect: "Status: Running" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 5633 | Select -First 3 | Format-List", expect: "Event 5633 = 802.1x auth failed - note error code" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS | Select -First 3 | Format-List", expect: "Reason Code identifies root cause" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh wlan show profile name='<SSID>' key=clear", expect: "EAP type matches what NPS expects - PEAP-MSCHAPv2 or EAP-TLS" },
+        { action: "netsh nps show client", expect: "WAP controller IP registered as RADIUS client with correct shared secret" },
+        { action: "On WAP controller: check RADIUS server timeout setting", expect: "Timeout at least 15 seconds - EAP-TLS requires multiple round trips" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "netsh wlan delete profile name='<SSID>' then gpupdate /force", expect: "Profile recreated from GPO with correct EAP settings" },
+        { action: "Verify and re-enter RADIUS shared secret on both NPS and WAP controller", expect: "Secrets match exactly including case" },
+        { action: "Increase RADIUS timeout on WAP controller to 15-30 seconds", expect: "EAP-TLS handshake has enough time to complete" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 on NPS | Select -First 3", expect: "Event 6272 = authentication succeeded" },
+        { action: "netsh wlan show interfaces", expect: "State: Connected, Authentication: WPA2-Enterprise" }
+      ]}
+    ]
+  },
+  cannot_associate: {
+    title: "Client cannot associate to enterprise SSID",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "netsh wlan show interfaces", expect: "State: Disconnected or Authenticating - not Connected" },
+        { action: "netsh wlan show networks mode=bssid", expect: "Target SSID visible with correct security type WPA2-Enterprise or WPA3-Enterprise" },
+        { action: "Get-Service WLANSVC | Select Status", expect: "Status: Running" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "netsh wlan show profile name='<SSID>'", expect: "Profile present - if missing, GPO has not applied or profile was deleted" },
+        { action: "gpresult /r | findstr -i 'wireless'", expect: "Wireless Network IEEE 802.11 GPO listed in Applied GPOs" },
+        { action: "netsh wlan show drivers", expect: "Driver version and supported authentication types - outdated driver may not support WPA3 or newer EAP methods" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Restart-Service WLANSVC", expect: "Wireless AutoConfig restarted - retry connection" },
+        { action: "gpupdate /force", expect: "Wireless profile redeployed from GPO" },
+        { action: "Update wireless NIC driver from OEM website", expect: "Driver updated - supports current authentication types" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "netsh wlan show interfaces", expect: "State: Connected, SSID matches target, Authentication: WPA2-Enterprise" },
+        { action: "ipconfig /all", expect: "Valid IP address received from correct VLAN scope" }
+      ]}
+    ]
+  },
+  roaming_drops: {
+    title: "Client drops connection when roaming between APs",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-WinEvent -LogName Microsoft-Windows-WLAN-AutoConfig/Operational | Sort TimeCreated -Desc | Select -First 20 | Format-List", expect: "Look for roam events followed by auth failure events" },
+        { action: "On WAP controller: check if 802.11r Fast Transition (FT) is enabled on the SSID", expect: "FT-EAP may be failing for clients that do not fully support it" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "On WAP controller: check PMK caching and OKC settings", expect: "If PMK cache entries are stale or OKC is disabled, full re-authentication occurs on every roam" },
+        { action: "Check RADIUS server timeout on WAP controller", expect: "If timeout too short, full EAP-TLS re-auth during roam times out before completing" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Disable 802.11r Fast Transition on the SSID (test environment first)", expect: "Removes FT-EAP requirement - clients fall back to full re-auth which is more compatible" },
+        { action: "Enable OKC on WAP controller", expect: "Opportunistic Key Caching allows fast roam without full EAP re-authentication" },
+        { action: "Increase RADIUS timeout on WAP controller to 15-30 seconds", expect: "Full re-auth during roam has enough time to complete" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Walk client between APs and monitor netsh wlan show interfaces", expect: "BSSID changes as client roams but State remains Connected throughout" }
+      ]}
+    ]
+  }
+};
+
+// -- VPN playbooks ------------------------------------------------------------
+QUESTION_BANK.vpn.playbooks = {
+  error_691_812: {
+    title: "VPN Error 691 or 812 - authentication rejected",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Note exact error code: 691 = auth failed at PPP level; 812 = NPS policy rejected", expect: "Error code determines whether issue is credentials (691) or NPS policy (812)" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS | Select -First 3 | Format-List", expect: "Reason Code and username - confirms NPS is receiving and rejecting the request" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-ADUser <username> -Properties Enabled,LockedOut,PasswordExpired | Select *", expect: "Account enabled, not locked, password not expired" },
+        { action: "Get-ADUser <username> -Properties msNPAllowDialin | Select msNPAllowDialin", expect: "Value should be $null (policy-controlled) or $true - if $false, user is always denied" },
+        { action: "netsh nps show np - check Network Policy conditions and order", expect: "A policy exists that matches VPN connection type and user group" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Unlock-ADAccount -Identity <user> if locked", expect: "Account unlocked - retry VPN connection" },
+        { action: "Set-ADUser <user> -Clear msNPAllowDialin if value is $false", expect: "Dial-in permission set to policy-controlled - NPS policy now governs access" },
+        { action: "Fix NPS Network Policy conditions to match VPN request attributes", expect: "Policy matches - check NAS-Port-Type, Windows Groups, and Tunnel-Type conditions" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Retry VPN connection", expect: "Connects successfully - no error 691 or 812" },
+        { action: "Get-WinEvent -LogName Security | Where Id -eq 6272 on NPS | Select -First 3", expect: "Event 6272 = authentication succeeded" }
+      ]}
+    ]
+  },
+  error_809_ikev2: {
+    title: "VPN Error 809 - IKEv2 tunnel cannot be established",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Test-NetConnection <VPN server FQDN> -Port 500", expect: "Note: this tests TCP 500 not UDP - use portqry -n <VPN IP> -e 500 -p udp for accurate UDP test" },
+        { action: "Test-NetConnection <VPN server FQDN> -Port 4500", expect: "UDP 4500 required for NAT-T when client is behind NAT" },
+        { action: "Get-Service RemoteAccess on RRAS server | Select Status", expect: "Status: Running" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-WinEvent -LogName System | Where ProviderName -eq 'RemoteAccess' | Select -First 5 | Format-List", expect: "Event 20249 = IPsec negotiation failure - note the specific IKE error" },
+        { action: "netsh ike show certmap on RRAS server", expect: "Machine certificate mapped to IKEv2 interface - if missing, IKEv2 has no cert to offer" },
+        { action: "Check firewall rules on all devices between client and server", expect: "UDP 500 and UDP 4500 permitted bidirectionally - ESP protocol 50 also required" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Open UDP 500 and UDP 4500 inbound on RRAS server Windows Firewall", expect: "IKEv2 negotiation traffic now reaches RRAS" },
+        { action: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\RemoteAccess\\Parameters\\Ikev2' -Name NatTraversalMode -Value 2", expect: "NAT-T forced on RRAS - required for clients behind NAT" },
+        { action: "Re-enroll RRAS machine cert with IP Security IKE Intermediate EKU (OID 1.3.6.1.5.5.8.2.2) if cert is missing or wrong", expect: "Correct cert enrolled and mapped to IKEv2 interface" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Retry VPN connection", expect: "IKEv2 tunnel establishes - no error 809" },
+        { action: "Get-RemoteAccessConnectionStatistics | Select ActiveConnections", expect: "Active connection count incremented" }
+      ]}
+    ]
+  },
+  error_789_l2tp: {
+    title: "VPN Error 789 - L2TP/IPsec security negotiation failed",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Test-NetConnection <VPN server> -Port 1701", expect: "L2TP uses UDP 1701 - also requires UDP 500 and UDP 4500 for IPsec" },
+        { action: "Get-WinEvent -LogName System | Where ProviderName -eq 'RemoteAccess' | Select -First 5 | Format-List", expect: "Event 20249 = IPsec phase failure" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Check if pre-shared key or machine certificate is configured for L2TP/IPsec on both client and server", expect: "Both sides must use same auth method - PSK or cert" },
+        { action: "netsh ipsec dynamic show all on both client and RRAS server", expect: "Compare Phase 1 and Phase 2 proposals - mismatch causes negotiation failure" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "For PSK: verify pre-shared key is identical on client VPN profile and RRAS server", expect: "PSK matches exactly - IPsec Phase 1 can complete" },
+        { action: "For cert: enroll machine cert with correct EKU on both client and server - ensure CA is trusted on both sides", expect: "Cert-based IPsec auth succeeds" },
+        { action: "Restart-Service RemoteAccess on RRAS server", expect: "RRAS reinitializes IPsec policies" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Retry VPN connection", expect: "L2TP/IPsec tunnel establishes - no error 789" }
+      ]}
+    ]
+  },
+  aovpn_device_tunnel_not_connecting: {
+    title: "Always On VPN Device Tunnel not connecting",
+    severity: "high",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "Get-VpnConnection -AllUserConnection | Select Name,ServerAddress,TunnelType,ConnectionStatus", expect: "Device Tunnel profile present with TunnelType: IKEv2 - ConnectionStatus shows current state" },
+        { action: "Get-WinEvent -LogName System | Where ProviderName -eq 'RasClient' | Select -First 5 | Format-List", expect: "Event 20227 or 20228 = VPN connection failed - note error code" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "certutil -store -machine My | findstr 'Subject'", expect: "Machine cert present - Device Tunnel requires machine cert not user cert" },
+        { action: "Get-VpnConnection -AllUserConnection | ConvertTo-Json", expect: "Profile deployed as AllUserConnection - if missing, Intune or SCCM deployment failed" },
+        { action: "Test-NetConnection <VPN server FQDN> -Port 500", expect: "Server reachable before tunnel is up - Device Tunnel connects before user logon" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Re-enroll machine cert: certlm.msc > Personal > Request New Certificate", expect: "Valid machine cert with Client Authentication and IP Security IKE Intermediate EKU" },
+        { action: "MDMDiagnosticsTool.exe -out C:\\MDMLogs\\ if deployed via Intune", expect: "MDMDiagReport.xml shows VPN profile deployment status and any CSP errors" },
+        { action: "Restart-Service RasMan", expect: "Remote Access Connection Manager restarted - Device Tunnel re-attempts connection" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Get-VpnConnection -AllUserConnection | Select Name,ConnectionStatus", expect: "ConnectionStatus: Connected" },
+        { action: "Test-NetConnection <internal resource> from client before user logon", expect: "Internal resource reachable via Device Tunnel" }
+      ]}
+    ]
+  },
+  dns_not_resolving_over_vpn: {
+    title: "DNS not resolving internal names over VPN",
+    severity: "medium",
+    phases: [
+      { name: "Verify", icon: "✅", steps: [
+        { action: "ipconfig /all after VPN connects", expect: "VPN adapter shows internal DNS server IPs - if blank, RRAS is not pushing DNS" },
+        { action: "nslookup <internal name> <VPN DNS IP>", expect: "If resolves with explicit IP but not by default, routing or NRPT issue" }
+      ]},
+      { name: "Isolate", icon: "🔍", steps: [
+        { action: "Get-VpnServerConfiguration | Select IPv4DnsServer on RRAS server", expect: "Correct internal DNS IP configured - if blank, DNS is not pushed to clients" },
+        { action: "Get-DnsClientNrptRule", expect: "NRPT rule for internal domain pointing to VPN DNS server - if missing, internal names use public DNS" },
+        { action: "Get-VpnConnection | Select SplitTunneling,DnsSuffix", expect: "DnsSuffix set to internal domain - SplitTunneling configured as intended" }
+      ]},
+      { name: "Fix", icon: "🛠", steps: [
+        { action: "Set-VpnServerConfiguration -IPv4DnsServer <internal DNS IP> on RRAS server", expect: "DNS server pushed to all VPN clients on connect" },
+        { action: "Add-DnsClientNrptRule -Namespace '.<domain>' -NameServers '<VPN DNS IP>'", expect: "NRPT rule routes internal domain queries to internal DNS over VPN" }
+      ]},
+      { name: "Confirm", icon: "🎯", steps: [
+        { action: "Resolve-DnsName <internal hostname> while VPN connected", expect: "Resolves to correct internal IP" },
+        { action: "Resolve-DnsName google.com while VPN connected", expect: "External names still resolve - split DNS working correctly" }
+      ]}
+    ]
+  }
+};
