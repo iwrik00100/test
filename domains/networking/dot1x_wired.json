@@ -1,0 +1,160 @@
+{
+  "key": "dot1x_wired",
+  "label": "802.1x Wired",
+  "icon": "🔌",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows version is the authenticating client running?",
+      "What is the exact symptom — switchport stuck in unauthorized state (no network), placed in guest/restricted VLAN, wrong VLAN assigned, or intermittent drops?",
+      "Is this affecting all ports on the switch, a specific switch, or only specific ports?",
+      "What switch vendor, model, and firmware/IOS version is the authenticating switch?",
+      "Is the switch configured for 802.1x with NPS (Microsoft RADIUS) as the authentication server?",
+      "What host mode is configured on the switch port — single-host, multi-host, multi-auth, or multi-domain (data + voice)?",
+      "Is the Wired AutoConfig service (dot3svc) running and set to Automatic on the Windows client? (Get-Service dot3svc | Select Status,StartType)",
+      "Is the client using EAP-TLS (machine or user certificate), PEAP-MSCHAPv2 (username/password), or PEAP-TLS?",
+      "When did this start — switch firmware update, certificate renewal, GPO change, NPS configuration change, or new client machine?"
+    ],
+    "l2": [
+      "What EAP method is configured in the Wired Network (IEEE 802.3) Group Policy — EAP-TLS, PEAP-MSCHAPv2, or a combined method?",
+      "Is the Wired Network IEEE 802.3 GPO applied to the affected machine? (gpresult /r | findstr -i '802.3\\|wired')",
+      "Is the client machine certificate issued by the correct internal CA, not expired, and present in the LocalMachine\\My certificate store?",
+      "Is the NPS Network Policy condition NAS-Port-Type set to Ethernet (value 15) for this wired policy?",
+      "Is the switch sending NAS-Port-Type = 15 (Ethernet) in the RADIUS Access-Request — or a different value based on switch vendor configuration?",
+      "Is MAC Authentication Bypass (MAB) configured as a fallback for printers, IP phones, or non-802.1x-capable devices?",
+      "Is the client machine account a member of the AD security group required by the NPS Network Policy conditions?",
+      "What Authentication Order is configured on the switch — dot1x first, then MAB, or MAB first? What are the timeouts?",
+      "Is the wired AutoConfig profile deployed as a Computer Configuration GPO (recommended) or User Configuration GPO?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'Get-Service dot3svc | Select Name,Status,StartType' — is Wired AutoConfig running and set to Automatic?",
+      "Run 'gpresult /r | findstr -i \"802.3\\|wired\\|IEEE\"' — is the Wired Network GPO listed in Applied GPOs?",
+      "Check Security event log for Event ID 5632 (802.1x authentication request sent) and 5633 (802.1x authentication failed) — share the error code from Event 5633.",
+      "On the switch: 'show dot1x interface <interface>' — what is the current authentication state (Authorized/Unauthorized)?",
+      "On the switch: 'show authentication sessions interface <interface>' — share the Method, Username, VLAN, and Session-state.",
+      "Run 'netsh lan show profiles' — is the correct 802.1x wired profile configured on the client?",
+      "Run 'netsh lan show interfaces' — confirm the wired interface is present and in a connected state.",
+      "On the NPS server: check Security log for Event 6273 with the Calling-Station-Id matching this client's MAC address."
+    ],
+    "l2": [
+      "Run 'netsh lan show profile name=\"<profile>\" | more' — share full EAP type, authentication mode, and certificate selection criteria.",
+      "On NPS: filter Security log Event 6273 — note Reason-Code (field 9), Client-IP (NAS IP), Calling-Station-Id (client MAC), and Filter-Id.",
+      "Run 'certutil -store My' on the client — confirm the machine certificate subject, thumbprint, expiry, and enhanced key usage (must include Client Authentication OID 1.3.6.1.5.5.7.3.2).",
+      "Capture 802.1x wired trace: 'netsh trace start capture=yes provider=Microsoft-Windows-Wired-AutoConfig level=5 tracefile=C:\\wired_8021x.etl' — reproduce — stop.",
+      "On the switch (during maintenance): enable 'debug dot1x' and 'debug radius authentication' — capture the full EAP exchange messages.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-Wired-AutoConfig/Operational | Sort TimeCreated -Descending | Select -First 30 | Format-List'",
+      "Verify RADIUS shared secret on NPS for this switch: 'netsh nps show client name=\"<switch name>\"'",
+      "Run 'gpresult /h C:\\gpo_report.html' — open and inspect Computer Configuration > Applied GPOs for the Wired Network (IEEE 802.3) policy name.",
+      "Run 'certutil -store -enterprise NTAuthCertificates' — is the issuing CA in the NTAuth store (required for Kerberos-based EAP-TLS)?"
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Start and set Wired AutoConfig to Automatic: 'Set-Service dot3svc -StartupType Automatic; Start-Service dot3svc'",
+      "Force GPO refresh: 'gpupdate /force /target:computer' — verify with 'netsh lan show profiles'",
+      "Verify machine certificate is present, not expired, and from the correct CA: open 'certlm.msc > Personal > Certificates'.",
+      "Bounce the switch port during a maintenance window: 'shutdown' then 'no shutdown' — forces a new authentication cycle.",
+      "Confirm NPS Network Policy NAS-Port-Type = 15 (Ethernet) matches what the switch sends.",
+      "For PEAP-MSCHAPv2: verify user password is not expired — 'Get-ADUser <user> -Properties PasswordExpired | Select PasswordExpired'"
+    ],
+    "l2": [
+      "For EAP-TLS client cert failure: confirm cert has SAN or CN matching the machine FQDN, Client Authentication EKU, and is in LocalMachine\\My.",
+      "For machine account not in required AD group: 'Add-ADGroupMember -Identity \"<group>\" -Members \"<computer>$\"' — machine must reboot to refresh its Kerberos PAC.",
+      "For MAB fallback failure: on the switch, verify 'authentication event no-response action authorize vlan <restricted VLAN>' is configured and the MAC is in the RADIUS client database.",
+      "For wired profile not applying via GPO: check GPRESULT — is policy in Denied GPOs? Check WMI filter or security filtering on the GPO object in GPMC.",
+      "For VLAN assignment not working: verify NPS Network Policy RADIUS attributes — Tunnel-Type (value 13 = VLAN), Tunnel-Medium-Type (value 6 = 802), Tunnel-Pvt-Group-ID (VLAN ID as a string, not integer).",
+      "Analyze wired AutoConfig ETL trace: use Event Viewer or 'tracerpt C:\\wired_8021x.etl -o C:\\wired_report.evtx -of EVTX' — look for EAP method negotiation failure, TLS Alert codes, or RADIUS timeout events.",
+      "For multi-domain mode issues on phone + PC same port: confirm switch detects phone via CDP/LLDP — 'show cdp neighbors interface <int>' — and assigns it to the voice VLAN."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Run 'netsh lan show profiles > C:\\wired_8021x_profiles.txt'",
+      "Run 'netsh lan show interfaces > C:\\wired_interfaces.txt'",
+      "Export Security event log: 'wevtutil epl Security C:\\Security_Events_Client.evtx'",
+      "Run 'gpresult /h C:\\gpo_report.html'"
+    ],
+    "l2": [
+      "Capture wired 802.1x trace: 'netsh trace start capture=yes provider=Microsoft-Windows-Wired-AutoConfig level=5 tracefile=C:\\wired_8021x_trace.etl' — reproduce — stop.",
+      "Export Wired-AutoConfig Operational log: 'wevtutil epl Microsoft-Windows-Wired-AutoConfig/Operational C:\\Wired_AutoConfig_Operational.evtx'",
+      "Run 'certutil -store My > C:\\machine_cert_store.txt'",
+      "Collect NPS configs: 'netsh nps show np > C:\\nps_np.txt'; 'netsh nps show crp > C:\\nps_crp.txt'",
+      "Collect switch outputs: 'show dot1x', 'show authentication sessions', 'show radius statistics', 'show running-config interface <int>'",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-Wired-AutoConfig/Operational | Export-Clixml C:\\wired_events.xml'"
+    ]
+  },
+  "playbooks": {
+    "port_unauthorized": {
+      "title": "Switchport stuck in unauthorized state — no network",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-Service dot3svc | Select Status,StartType", "expect": "Status: Running, StartType: Automatic" },
+            { "action": "On switch: show dot1x interface <port>", "expect": "Auth state: Unauthorized — confirms 802.1x is blocking the port" },
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 5633 | Select -First 3 | Format-List", "expect": "Event 5633 = 802.1x auth failed — note the error code" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS server | Select -First 3 | Format-List", "expect": "Reason Code identifies root cause — 22=account not found, 23=wrong password, 48=no policy matched, 65=EAP failure" },
+            { "action": "netsh lan show profiles", "expect": "Correct 802.1x wired profile present on client" },
+            { "action": "gpresult /r | findstr -i '802.3'", "expect": "Wired Network IEEE 802.3 GPO listed in Applied GPOs" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Set-Service dot3svc -StartupType Automatic; Start-Service dot3svc", "expect": "Wired AutoConfig service running" },
+            { "action": "gpupdate /force /target:computer", "expect": "Wired 802.1x profile refreshed from GPO" },
+            { "action": "On switch: shutdown then no shutdown on the port", "expect": "Forces new authentication cycle after client-side fix" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "On switch: show authentication sessions interface <port>", "expect": "Auth state: Authorized, correct VLAN assigned" },
+            { "action": "ipconfig /all on client", "expect": "Valid IP address received from correct VLAN scope" }
+          ]
+        }
+      ]
+    },
+    "vlan_not_assigned": {
+      "title": "Wrong VLAN assigned after wired 802.1x authentication",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "On switch: show authentication sessions interface <port>", "expect": "Auth succeeds but VLAN shown is wrong" },
+            { "action": "ipconfig /all on client", "expect": "IP is in wrong subnet — confirms VLAN assignment issue not auth issue" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "netsh nps show np — check RADIUS attributes on matching Network Policy", "expect": "Tunnel-Type=13, Tunnel-Medium-Type=6, Tunnel-Pvt-Group-ID=<VLAN ID as string>" },
+            { "action": "On switch: show running-config interface <port>", "expect": "Confirm switchport is configured to accept RADIUS-assigned VLAN" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "In NPS console: correct Tunnel-Pvt-Group-ID to the correct VLAN ID as a string value", "expect": "VLAN ID corrected — note it must be a string not integer type" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Re-authenticate: on switch shutdown then no shutdown on port", "expect": "Client re-authenticates and receives correct VLAN" },
+            { "action": "ipconfig /all on client", "expect": "IP address in correct VLAN subnet" }
+          ]
+        }
+      ]
+    }
+  }
+}

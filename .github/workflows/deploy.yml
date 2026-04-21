@@ -1,0 +1,84 @@
+name: CD — Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:    # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+
+  # ── Build ────────────────────────────────────────────────────────
+  build:
+    name: Build Site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Validate all JSON before deploying
+        run: |
+          python3 -c "
+          import json, os, sys
+          errors = []
+          for root, dirs, files in os.walk('domains'):
+              for f in files:
+                  if f.endswith('.json'):
+                      path = os.path.join(root, f)
+                      try:
+                          json.load(open(path))
+                      except json.JSONDecodeError as e:
+                          errors.append(f'{path}: {e}')
+          if errors:
+              print('JSON validation failed:')
+              for e in errors: print(e)
+              sys.exit(1)
+          print(f'✅ All JSON files valid')
+          "
+
+      - name: Build site artifact
+        run: |
+          mkdir -p _site
+          cp -r src/     _site/src/
+          cp -r domains/ _site/domains/
+          cp -r schema/  _site/schema/
+          # Root redirect
+          echo '<html><head><meta http-equiv="refresh" content="0;url=src/"></head></html>' \
+            > _site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # ── Deploy ───────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Post deployment summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY

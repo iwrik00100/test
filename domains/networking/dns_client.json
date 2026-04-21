@@ -1,0 +1,172 @@
+{
+  "key": "dns_client",
+  "label": "DNS Client",
+  "icon": "💻",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows version and build number is the affected client running? (winver or Get-ComputerInfo | Select OsName,OsVersion)",
+      "Is this issue affecting one client, multiple clients on the same subnet, or clients across multiple sites?",
+      "What DNS server IPs are configured on the affected client — assigned via DHCP or statically configured?",
+      "Can the client reach the configured DNS server on port 53? (Test-NetConnection <DNS IP> -Port 53)",
+      "Is the DNS Client service (Dnscache) running on the affected machine?",
+      "Is the client domain-joined, Azure AD joined, Hybrid Azure AD joined, or a standalone workgroup machine?",
+      "Are all DNS names failing, or only specific namespaces — internal vs. external, short names vs. FQDNs?",
+      "When did the issue begin — Windows Update, GPO change, network reconfiguration, or VPN client installation?",
+      "Does flushing the DNS resolver cache resolve the issue temporarily? (ipconfig /flushdns)",
+      "Is this a physical machine, Hyper-V VM, Azure VM, or VDI/Citrix session?",
+      "Does the issue occur consistently or intermittently — if intermittent, does it correlate with network events (sleep/resume, DHCP lease renewal, VPN connect/disconnect)?"
+    ],
+    "l2": [
+      "Is the client using DHCP-assigned DNS (option 6) or statically configured DNS — is the correct DNS server being assigned?",
+      "Are DNS suffix search lists configured via Group Policy (Computer or User) or locally via netsh/registry?",
+      "Is DNS devolution enabled — what is the DevolutionLevel setting? Could devolution cause short names to resolve to the wrong domain?",
+      "Is the client configured to register DNS records — is dynamic update working? Is the record appearing correctly in DNS?",
+      "Is DNS over HTTPS (DoH) or DNS over TLS (DoT) configured on this Windows 11 / Server 2022 client?",
+      "Are Name Resolution Policy Table (NRPT) rules applied via GPO — do they affect the failing namespace or override the configured DNS server?",
+      "If the client is on VPN — are the split-tunnel DNS settings correct? Is the VPN client injecting NRPT rules or overriding the primary DNS server?",
+      "Is the DNS resolver cache holding stale negative cache entries (NXDOMAIN) for the failing name?",
+      "Are third-party DNS agents, DNS filtering proxies, or endpoint security products intercepting or modifying DNS traffic on port 53?",
+      "Is IPv6 active — are AAAA queries failing while A record queries succeed, or vice versa? Is the client preferring IPv6 (RFC 3484)?",
+      "Is there a browser-level DoH configuration (Chrome, Edge) that bypasses the Windows DNS resolver entirely?",
+      "Is the client behind a captive portal or proxy that intercepts DNS before reaching the configured server?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'ipconfig /all' — share full output including DNS Servers, Connection-Specific DNS Suffix, DHCP Enabled, and IP address.",
+      "Run 'nslookup <failing name>' — note the DNS server queried and the exact response (Timeout, Non-existent domain, Server failed, or wrong address).",
+      "Run 'nslookup <failing name> <explicit DNS IP>' — compare results with default DNS server vs. a known-good server.",
+      "Run 'ping <failing hostname>' — does it fail at name resolution (could not find host) or at ICMP level (request timed out)?",
+      "Run 'ipconfig /flushdns && ipconfig /registerdns' — retry and share results.",
+      "Run 'Test-NetConnection -ComputerName <failing name> -Port 80' — does it resolve the name?",
+      "Run 'Resolve-DnsName <failing name>' and 'Resolve-DnsName <failing name> -Server 8.8.8.8' — compare outputs.",
+      "Is the issue specific to this client? Can another client on the same subnet resolve the same name?"
+    ],
+    "l2": [
+      "Run 'Get-DnsClientNrptPolicy' — are NRPT rules routing specific namespaces to different DNS servers or blocking resolution?",
+      "Run 'Get-DnsClient | Select InterfaceAlias,ConnectionSpecificSuffix,UseSuffixSearchList,RegisterThisConnectionsAddress'",
+      "Run 'Get-DnsClientServerAddress -AddressFamily IPv4' and '-AddressFamily IPv6' — confirm per-interface DNS server assignments.",
+      "Run 'Get-DnsClientGlobalSetting' — review SuffixSearchList, UseDevolution, DevolutionLevel, QueryAdapterName.",
+      "Run 'Get-DnsClientCache | Where Status -ne \"Success\" | Select Name,Type,Status,TTL | Format-Table' — inspect failed cache entries.",
+      "Run 'Get-DnsClientCache | Where Name -eq \"<failing name>\"' — is a stale or negative entry cached?",
+      "Capture DNS client ETL trace: 'netsh trace start capture=yes provider=Microsoft-Windows-DNS-Client level=5 keywords=0xFFFFFFFF tracefile=C:\\dns_client.etl' — reproduce — 'netsh trace stop'",
+      "Run 'gpresult /h C:\\gpo_report.html' — open report and inspect Computer > Windows Settings > Name Resolution Policy and DNS Client settings.",
+      "Run 'Get-NetIPConfiguration -Detailed' — review DNSServer, DNSSuffix, and InterfaceAlias for all adapters.",
+      "Run 'Resolve-DnsName <n> -DnsOnly -Type A' and 'Resolve-DnsName <n> -DnsOnly -Type AAAA' — compare IPv4 vs. IPv6 resolution.",
+      "Run 'netsh winhttp show proxy' — proxy misconfiguration can affect DNS in browser and WinHTTP contexts.",
+      "Run 'Get-DnsClientNrptRule' — list all NRPT rules including their namespace, DNS servers, and DirectAccessDnsServers fields."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Flush DNS resolver cache and re-register: 'ipconfig /flushdns && ipconfig /registerdns' — retest immediately.",
+      "Restart the DNS Client service: 'Restart-Service Dnscache' — if service cannot restart, check dependent services.",
+      "Verify configured DNS server IPs are correct: 'Get-DnsClientServerAddress' — compare against expected domain DNS servers.",
+      "Test with an explicit public DNS server: 'Resolve-DnsName <name> -Server 8.8.8.8' — if this resolves, internal DNS is the issue.",
+      "Restart the network adapter: 'Restart-NetAdapter -Name \"<adapter>\"' — this forces DHCP renewal and refreshes DNS settings.",
+      "Run 'gpupdate /force' if domain-joined — refresh Group Policy DNS settings including NRPT and suffix search lists.",
+      "Check if DNS Client service start type is Manual (it should be Automatic or Automatic Delayed): 'Set-Service Dnscache -StartupType Automatic'"
+    ],
+    "l2": [
+      "If NRPT rules are misdirecting queries: identify the offending rule via 'Get-DnsClientNrptRule' — remove via 'Remove-DnsClientNrptRule -Namespace <n>' or correct via Group Policy.",
+      "If DoH is causing resolution failures on Windows 11: disable per-adapter via Settings > Network > DNS Server Assignment — or: 'Set-DnsClientDohServerAddress -ServerAddress <IP> -DohTemplate $null'",
+      "If stale negative caching persists: increase or remove the negative cache TTL on the authoritative DNS server (SOA NXTTL / minimum TTL field).",
+      "If VPN client is overriding DNS: check VPN client NRPT rules — 'Get-DnsClientNrptRule | Where Source -eq \"DirectAccess\"' — or review VPN client DNS configuration documentation.",
+      "If the client is registering wrong DNS records due to multiple NICs: adjust interface metrics — 'Set-NetIPInterface -InterfaceAlias \"<primary>\" -InterfaceMetric 10' — then run 'ipconfig /registerdns'.",
+      "If AAAA queries cause failures and IPv6 is not needed: configure 'Prefer IPv4 over IPv6' via registry — HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters DisabledComponents = 0x20. Requires reboot.",
+      "Analyze the DNS client ETL trace: use 'tracerpt C:\\dns_client.etl -o C:\\dns_report.evtx -of EVTX' — look for DNS_QUERY_REQUEST, DNS_QUERY_RESPONSE events and filter on failing name.",
+      "If browser DNS is bypassing Windows resolver: disable browser DoH in Group Policy (Chrome: DnsOverHttpsMode = off; Edge: same policy) — or via browser settings."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Run 'ipconfig /all > C:\\ipconfig_client.txt'",
+      "Run 'nslookup <failing name> > C:\\nslookup_default.txt' and 'nslookup <failing name> <DNS IP> > C:\\nslookup_explicit.txt'",
+      "Run 'Get-DnsClientCache | Out-File C:\\dns_cache.txt'",
+      "Export Application event log: 'wevtutil epl Application C:\\App_Events.evtx'"
+    ],
+    "l2": [
+      "Capture DNS client ETL: 'netsh trace start capture=yes provider=Microsoft-Windows-DNS-Client level=5 tracefile=C:\\dns_client_trace.etl' — reproduce — stop.",
+      "Run 'gpresult /h C:\\gpo_dns_report.html'",
+      "Run 'Get-DnsClientNrptPolicy | Out-File C:\\nrpt_policy.txt'",
+      "Run 'Get-DnsClientGlobalSetting | Out-File C:\\dns_global.txt'",
+      "Run 'Get-DnsClientServerAddress | Out-File C:\\dns_server_addresses.txt'",
+      "Run 'Get-NetIPConfiguration -Detailed | Out-File C:\\net_ip_config_detailed.txt'",
+      "Export System event log: 'wevtutil epl System C:\\System_Events.evtx'"
+    ]
+  },
+  "playbooks": {
+    "client_not_resolving": {
+      "title": "Client cannot resolve any DNS names",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-Service Dnscache | Select Status,StartType", "expect": "Status: Running" },
+            { "action": "ipconfig /all", "expect": "DNS Servers field shows valid IPs — not blank or 0.0.0.0" },
+            { "action": "Test-NetConnection <DNS IP> -Port 53", "expect": "TcpTestSucceeded: True" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "nslookup <name> <DNS IP>", "expect": "If resolves with explicit IP but not default, DNS client config is wrong" },
+            { "action": "Resolve-DnsName <name> -Server 8.8.8.8", "expect": "If resolves via public DNS, internal DNS server is the problem" },
+            { "action": "Get-DnsClientNrptPolicy", "expect": "Check for NRPT rules routing queries to a wrong or unreachable server" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "ipconfig /flushdns && ipconfig /registerdns", "expect": "Cache cleared and records re-registered" },
+            { "action": "Restart-Service Dnscache", "expect": "DNS Client service restarts cleanly" },
+            { "action": "gpupdate /force", "expect": "Refreshes NRPT rules and DNS suffix search list from Group Policy" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Resolve-DnsName <failing name>", "expect": "Resolves correctly using default DNS server" },
+            { "action": "ping <failing hostname>", "expect": "Name resolves and ICMP succeeds" }
+          ]
+        }
+      ]
+    },
+    "nrpt_misdirecting": {
+      "title": "NRPT rules misdirecting DNS queries",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-DnsClientNrptPolicy", "expect": "Lists active NRPT rules — check if any namespace matches the failing name" },
+            { "action": "Get-DnsClientNrptRule", "expect": "Shows source of each rule (GPO, DirectAccess, manual) and target DNS server" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Resolve-DnsName <failing name> -Server <NRPT target DNS>", "expect": "If fails here, NRPT is routing to a broken DNS server" },
+            { "action": "gpresult /h C:\\gpo_report.html — open and check Name Resolution Policy section", "expect": "Identify which GPO is pushing the offending NRPT rule" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Remove-DnsClientNrptRule -Namespace '<namespace>' (if manually added)", "expect": "Rule removed — test resolution immediately" },
+            { "action": "If GPO-pushed: edit in GPMC — Computer Config > Windows Settings > Name Resolution Policy — remove or correct rule — gpupdate /force", "expect": "Offending rule removed from client" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Get-DnsClientNrptPolicy", "expect": "Offending rule no longer present" },
+            { "action": "Resolve-DnsName <previously failing name>", "expect": "Resolves correctly via default DNS server" }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "key": "dot1x_wireless",
+  "label": "802.1x Wireless",
+  "icon": "📶",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows version is the wireless client running?",
+      "What is the exact symptom — cannot associate to the SSID, associates but authentication fails (802.1x), connects but gets no IP, assigned to wrong VLAN, or keeps disconnecting after successful auth?",
+      "Is this affecting all wireless clients on the SSID, or specific client models, OS versions, or user accounts?",
+      "What wireless infrastructure is in use — Cisco WLC/Catalyst Center, Meraki, Aruba Central/AOS, Ruckus SmartZone, or HPE Aruba Instant?",
+      "What SSID security type is affected — WPA2-Enterprise (AES), WPA3-Enterprise (AES-256-GCM/CCMP), or WPA2-Personal?",
+      "Is NPS the RADIUS backend, or is a third-party RADIUS server in use (Cisco ISE, Aruba ClearPass, FreeRADIUS)?",
+      "What EAP method is configured — EAP-TLS (certificate), PEAP-MSCHAPv2 (username/password), PEAP-TLS, or TTLS?",
+      "Is the Wireless AutoConfig service (WLANSVC) running on the client? (Get-Service WLANSVC | Select Status,StartType)",
+      "When did this start — WAP controller firmware update, TLS certificate expiry, SSID security policy change, GPO change, or NPS server change?"
+    ],
+    "l2": [
+      "Is the wireless profile deployed via Group Policy as a Computer Configuration (Wireless Network IEEE 802.11) policy or User Configuration policy?",
+      "Does the profile use machine authentication only, user authentication only, or machine-then-user (Machine or User authentication mode)?",
+      "Is the WAP controller/AP configured with the correct NPS RADIUS server IPs (primary and secondary) on UDP 1812 — and the correct shared secret?",
+      "What radio band and channel is the client associating on — 2.4 GHz, 5 GHz, or 6 GHz (Wi-Fi 6E)? Is band steering forcing clients to a band where authentication fails?",
+      "Is PMK (Pairwise Master Key) caching or OKC (Opportunistic Key Caching) enabled on the controller — could stale PMK entries cause re-authentication failures during roaming?",
+      "Is 802.11r Fast Transition (FT) or 802.11v BSS Transition Management configured — could FT-EAP be failing for clients that do not support it?",
+      "What NAS-Port-Type value is the WAP controller sending in RADIUS Access-Requests — Wireless (value 19) or IEEE 802.11 (value 5)? Does the NPS Network Policy condition match?",
+      "Is the RADIUS server timeout on the WAP controller sufficient for EAP-TLS multi-round-trip exchanges — minimum 10-15 seconds?",
+      "Is there a RADIUS Dead Server Detection or failover mechanism on the WAP — is the secondary NPS server reachable and configured correctly?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'Get-Service WLANSVC | Select Name,Status,StartType' — is Wireless AutoConfig service running?",
+      "Run 'netsh wlan show profiles' — is the correct enterprise SSID profile present on the client?",
+      "Run 'netsh wlan show profile name=\"<SSID>\" key=clear' — share the full profile output.",
+      "Run 'netsh wlan show interfaces' — share the current association SSID, BSSID, signal quality, authentication algorithm, and cipher.",
+      "Check Security event log for Event ID 5632 (802.1x auth started) and 5633 (802.1x auth failed) — share the error code and reason from Event 5633.",
+      "On the WAP controller: check the client authentication and association log for the failing client MAC — what stage does authentication fail at?",
+      "Does the client receive an IP address after association? ('ipconfig /all') — if yes, 802.1x auth succeeded and the issue is DHCP; if no, auth itself failed."
+    ],
+    "l2": [
+      "Capture wireless 802.1x ETL trace: 'netsh trace start capture=yes provider=Microsoft-Windows-WLAN-AutoConfig level=5 tracefile=C:\\wlan_8021x.etl' — reproduce — stop.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-WLAN-AutoConfig/Operational | Sort TimeCreated -Descending | Select -First 50 | Format-List TimeCreated,Id,Message'",
+      "On NPS: filter Security event log for Event ID 6273 — match the Calling-Station-Id attribute to the client's MAC address (format: XX-XX-XX-XX-XX-XX or XXXXXXXXXXXX depending on vendor).",
+      "Run 'certutil -store My' (machine cert) and 'certutil -store -user My' (user cert) — verify subject, expiry, issuer, and EKU.",
+      "Run 'gpresult /r | findstr -i \"wireless\\|WLAN\\|802.11\"' — confirm Wireless Network policy is in Applied GPOs for Computer or User.",
+      "On the WAP controller: run 'debug client <MAC>' or equivalent vendor command — capture the full RADIUS exchange (Access-Request, Access-Challenge ×N, Access-Accept/Reject).",
+      "Run 'netsh wlan show drivers' — share NIC driver version, radio type (802.11n/ac/ax), and supported authentication types.",
+      "Run 'netsh wlan show networks mode=bssid' — share the security type, authentication, and cipher values visible for the target SSID.",
+      "Verify NPS RADIUS client registration for the WAP controller IP: 'netsh nps show client' — confirm IP and shared secret hash.",
+      "Run 'Get-NetAdapter | Where InterfaceDescription -like \"*wireless*\" | Select Name,Status,DriverVersion,DriverDate'"
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Restart Wireless AutoConfig service: 'Restart-Service WLANSVC' — wait 10 seconds — retry connection.",
+      "Delete and recreate the wireless profile: 'netsh wlan delete profile name=\"<SSID>\"' — force GPO reapplication with 'gpupdate /force' or manually reconfigure.",
+      "Verify machine certificate is enrolled, valid, and not expired: certlm.msc > Personal > Certificates.",
+      "Check NPS Network Policy conditions — confirm the machine or user account is in the required Windows Group condition.",
+      "Verify RADIUS shared secret is identical on NPS and the WAP controller — check for trailing whitespace in shared secret fields.",
+      "If using PEAP-MSCHAPv2: confirm user's AD password has not expired — 'Get-ADUser <user> -Properties PasswordExpired | Select PasswordExpired'"
+    ],
+    "l2": [
+      "For EAP-TLS: push issuing CA root certificate to all clients via GPO: 'Computer Configuration > Windows Settings > Security Settings > Public Key Policies > Trusted Root Certification Authorities'.",
+      "For PEAP server certificate not trusted by clients: in the wireless profile (GPO or manual), under Authentication > PEAP Properties, ensure the NPS server certificate issuer root CA is listed under 'Trusted Root Certification Authorities'.",
+      "For roaming re-authentication failures: enable OKC on the WAP controller — confirm client profile has 'Single Sign On' disabled and no forced re-auth on roam.",
+      "For machine-then-user auth failure: confirm machine authenticates at boot (using machine cert / machine credentials) before user logon — GPO Wireless Network profile > Security > Authentication Mode = 'User or Machine authentication'.",
+      "For RADIUS timeout causing auth failure: on the WAP controller, set the RADIUS authentication timeout to 15-30 seconds — EAP-TLS with OCSP checking can take 5-10 seconds.",
+      "For NAS-Port-Type mismatch in NPS policy: capture a RADIUS packet — confirm the exact NAS-Port-Type value sent by the WAP — update NPS Network Policy condition to match.",
+      "For 802.11r Fast Transition (FT) causing EAP-TLS failure: disable FT on the SSID (test environment) — some Windows clients do not fully support FT-EAP mode.",
+      "Analyze WLAN AutoConfig ETL trace: look for EAP method negotiation (WLAN-AutoConfig event 8001/8002), TLS Alert Codes (40=handshake_failure, 42=bad_certificate, 44=certificate_revoked, 46=certificate_unknown, 48=unknown_ca)."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Run 'netsh wlan show profiles > C:\\wlan_profiles.txt'",
+      "Run 'netsh wlan show interfaces > C:\\wlan_interfaces.txt'",
+      "Export Security event log: 'wevtutil epl Security C:\\Security_Events_Client.evtx'",
+      "Run 'netsh wlan show drivers > C:\\wlan_drivers.txt'"
+    ],
+    "l2": [
+      "Capture WLAN 802.1x trace: 'netsh trace start capture=yes provider=Microsoft-Windows-WLAN-AutoConfig level=5 keywords=0xFFFFFFFF tracefile=C:\\wlan_8021x_trace.etl' — reproduce — stop.",
+      "Export WLAN-AutoConfig Operational log: 'wevtutil epl Microsoft-Windows-WLAN-AutoConfig/Operational C:\\WLAN_AutoConfig_Operational.evtx'",
+      "Run 'certutil -store My > C:\\machine_cert_store.txt' and 'certutil -store -user My > C:\\user_cert_store.txt'",
+      "Collect WAP controller logs: client association log, RADIUS proxy log, and 802.11 state machine log for the failing client MAC.",
+      "Run 'gpresult /h C:\\gpo_wireless_report.html'",
+      "Run 'Get-NetAdapter | Select Name,Status,DriverVersion,DriverDate,InterfaceDescription | Out-File C:\\nic_info.txt'",
+      "Collect NPS IAS logs and Security event log from the NPS server."
+    ]
+  },
+  "playbooks": {
+    "auth_fails_after_associate": {
+      "title": "Client associates to SSID but 802.1x authentication fails",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-Service WLANSVC | Select Status,StartType", "expect": "Status: Running" },
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 5633 | Select -First 3 | Format-List", "expect": "Event 5633 = 802.1x auth failed — note error code" },
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS | Select -First 3 | Format-List", "expect": "Reason Code identifies root cause" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "netsh wlan show profile name='<SSID>' key=clear", "expect": "EAP type matches what NPS expects — PEAP-MSCHAPv2 or EAP-TLS" },
+            { "action": "netsh nps show client", "expect": "WAP controller IP registered as RADIUS client with correct shared secret" },
+            { "action": "On WAP controller: check RADIUS server timeout setting", "expect": "Timeout at least 15 seconds — EAP-TLS requires multiple round trips" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "netsh wlan delete profile name='<SSID>' then gpupdate /force", "expect": "Profile recreated from GPO with correct EAP settings" },
+            { "action": "Verify and re-enter RADIUS shared secret on both NPS and WAP controller", "expect": "Secrets match exactly including case" },
+            { "action": "Increase RADIUS timeout on WAP controller to 15-30 seconds", "expect": "EAP-TLS handshake has enough time to complete" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 6272 on NPS | Select -First 3", "expect": "Event 6272 = authentication succeeded" },
+            { "action": "netsh wlan show interfaces", "expect": "State: Connected, Authentication: WPA2-Enterprise" }
+          ]
+        }
+      ]
+    },
+    "roaming_drops": {
+      "title": "Client drops connection when roaming between APs",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-WinEvent -LogName Microsoft-Windows-WLAN-AutoConfig/Operational | Sort TimeCreated -Desc | Select -First 20 | Format-List", "expect": "Look for roam events followed by auth failure events" },
+            { "action": "On WAP controller: check if 802.11r Fast Transition (FT) is enabled on the SSID", "expect": "FT-EAP may be failing for clients that do not fully support it" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "On WAP controller: check PMK caching and OKC settings", "expect": "If PMK cache entries are stale or OKC is disabled, full re-authentication occurs on every roam" },
+            { "action": "Check RADIUS server timeout on WAP controller", "expect": "If timeout too short, full EAP-TLS re-auth during roam times out before completing" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Disable 802.11r Fast Transition on the SSID (test environment first)", "expect": "Removes FT-EAP requirement — clients fall back to full re-auth which is more compatible" },
+            { "action": "Enable OKC on WAP controller", "expect": "Opportunistic Key Caching allows fast roam without full EAP re-authentication" },
+            { "action": "Increase RADIUS timeout on WAP controller to 15-30 seconds", "expect": "Full re-auth during roam has enough time to complete" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Walk client between APs and monitor netsh wlan show interfaces", "expect": "BSSID changes as client roams but State remains Connected throughout" }
+          ]
+        }
+      ]
+    },
+    "cannot_associate": {
+      "title": "Client cannot associate to enterprise SSID",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "netsh wlan show interfaces", "expect": "State: Disconnected or Authenticating — not Connected" },
+            { "action": "netsh wlan show networks mode=bssid", "expect": "Target SSID visible with correct security type WPA2-Enterprise or WPA3-Enterprise" },
+            { "action": "Get-Service WLANSVC | Select Status", "expect": "Status: Running" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "netsh wlan show profile name='<SSID>'", "expect": "Profile present — if missing, GPO has not applied or profile was deleted" },
+            { "action": "gpresult /r | findstr -i 'wireless'", "expect": "Wireless Network IEEE 802.11 GPO listed in Applied GPOs" },
+            { "action": "netsh wlan show drivers", "expect": "Driver version and supported authentication types — outdated driver may not support WPA3 or newer EAP methods" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Restart-Service WLANSVC", "expect": "Wireless AutoConfig restarted — retry connection" },
+            { "action": "gpupdate /force", "expect": "Wireless profile redeployed from GPO" },
+            { "action": "Update wireless NIC driver from OEM website", "expect": "Driver updated — supports current authentication types" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "netsh wlan show interfaces", "expect": "State: Connected, SSID matches target, Authentication: WPA2-Enterprise" },
+            { "action": "ipconfig /all", "expect": "Valid IP address received from correct VLAN scope" }
+          ]
+        }
+      ]
+    }
+  }
+}

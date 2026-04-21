@@ -1,0 +1,19 @@
+{
+  "key": "networking",
+  "label": "Networking",
+  "icon": "🌐",
+  "description": "Windows DNS, DHCP, TCP/IP, SMB, DFS, NPS (RADIUS), 802.1x Wired/Wireless, VPN",
+  "technologies": [
+    { "key": "dns_server", "label": "DNS Server", "icon": "🖧" },
+    { "key": "dns_client", "label": "DNS Client", "icon": "💻" },
+    { "key": "dhcp_server", "label": "DHCP Server", "icon": "🗄️" },
+    { "key": "dhcp_client", "label": "DHCP Client", "icon": "📡" },
+    { "key": "tcpip", "label": "TCP/IP", "icon": "🌐" },
+    { "key": "smb", "label": "SMB", "icon": "📂" },
+    { "key": "dfs", "label": "DFS", "icon": "🗃️" },
+    { "key": "nps", "label": "NPS (RADIUS)", "icon": "🔐" },
+    { "key": "dot1x_wired", "label": "802.1x Wired", "icon": "🔌" },
+    { "key": "dot1x_wireless", "label": "802.1x Wireless", "icon": "📶" },
+    { "key": "vpn", "label": "VPN", "icon": "🔒" }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "key": "dhcp_client",
+  "label": "DHCP Client",
+  "icon": "📡",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What Windows version and build is the affected client running?",
+      "What IP address is the client currently showing — APIPA (169.254.x.x), an IP from the wrong scope, or no IP at all?",
+      "Is the DHCP Client service (Dhcp) running on the affected machine? (Get-Service Dhcp | Select Status)",
+      "Is this a wired Ethernet connection, Wi-Fi connection, or a virtual NIC (Hyper-V/VMware)?",
+      "Is the issue intermittent (e.g., fails after wake from sleep) or persistent (never receives an IP)?",
+      "Is the client domain-joined — if so, can it authenticate to the domain when it does receive an IP?",
+      "Are multiple clients on the same subnet/VLAN affected, or is this one device only?",
+      "Was there a recent change that could explain the problem — NIC driver update, OS upgrade, VLAN reassignment, or Hyper-V VM migration?",
+      "Does manually assigning a static IP in the same subnet restore full network connectivity — confirming the issue is DHCP-specific?"
+    ],
+    "l2": [
+      "Does the client have a DHCP reservation configured by MAC address on the DHCP server — is the reservation in the correct scope?",
+      "Is the client sending the expected Vendor Class Identifier (Option 60 / VCI) that DHCP policies filter on?",
+      "Is DHCPv6 (IA_NA or IA_PD) being requested alongside DHCPv4 — is the client getting a valid IPv6 address from DHCPv6?",
+      "Are UDP ports 67 (server-bound) and 68 (client-bound) blocked by Windows Filtering Platform, Windows Firewall, or a network ACL?",
+      "For Hyper-V VMs: is the virtual switch type correct (External) — is MAC address spoofing enabled if needed for load balancing or VMs with multiple NICs?",
+      "Is IPv6 SLAAC autoconfiguring an address that interferes with expected DHCPv6 server-assigned addressing?",
+      "Is there a third-party network management agent or endpoint security product that takes ownership of the NIC and may suppress DHCP requests?",
+      "For post-sleep/hibernate lease renewal failures: is NIC Wake-on-LAN or power management configured to allow the NIC to remain active through power state transitions?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "Run 'ipconfig /all' — share DHCP Enabled (Yes/No), IP Address, DHCP Server, Lease Obtained, and Lease Expires fields.",
+      "Run 'ipconfig /release && ipconfig /renew' — share the complete output including any error: 'An error occurred while renewing interface...'",
+      "Run 'Get-Service Dhcp | Select Name,Status,StartType,DependentServices'",
+      "Run 'Get-NetIPAddress | Select InterfaceAlias,AddressFamily,IPAddress,PrefixOrigin,SuffixOrigin,AddressState'",
+      "Try a different physical switchport — does the client receive an IP from a different port?",
+      "Run 'arp -a' — are there duplicate IP-to-MAC mappings indicating an IP address conflict?",
+      "Restart the network adapter: 'Restart-NetAdapter -Name \"<adapter>\" -Confirm:$false'"
+    ],
+    "l2": [
+      "Capture DHCP DORA: 'netsh trace start capture=yes tracefile=C:\\dhcp_client_trace.etl' — run 'ipconfig /renew' — 'netsh trace stop' — share ETL.",
+      "Run 'Get-NetAdapter | Select Name,Status,MacAddress,LinkSpeed,DriverVersion,DriverDate,InterfaceDescription'",
+      "Run 'Get-NetAdapterPowerManagement | Select Name,AllowComputerToTurnOffDevice,WakeOnMagicPacket,WakeOnPattern'",
+      "Check WFP for UDP 67/68 blocks: 'netsh wfp show filters | Select-String -Pattern \"67|68|dhcp\" -Context 2,2'",
+      "On the DHCP server: 'Get-DhcpServerv4Lease -ScopeId <scope> | Where ClientId -eq \"<MAC address>\"' — confirm whether a lease exists.",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Sort TimeCreated -Descending | Select -First 30 | Format-List TimeCreated,Id,Message'",
+      "Run 'Get-NetAdapterBinding -Name \"<adapter>\" | Select DisplayName,ComponentID,Enabled' — confirm DHCP-relevant bindings (IPv4, IPv6) are enabled.",
+      "For Hyper-V VMs: 'Get-VMNetworkAdapter -VMName <VM> | Select Name,MacAddress,MacAddressSpoofing,Connected,SwitchName,VlanSetting'"
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Restart DHCP Client service: 'Restart-Service Dhcp' — verify it restarts successfully.",
+      "Full release/flush/renew: 'ipconfig /release && ipconfig /flushdns && ipconfig /renew'",
+      "Verify the IP Helper address on the router/L3 switch for the client's VLAN points to the correct DHCP server IP.",
+      "Update the NIC driver to the latest version from the hardware OEM — driver bugs can cause DHCP failures.",
+      "Check for VLAN mismatch on the switchport — confirm the access VLAN matches the DHCP scope's subnet.",
+      "Check for rogue DHCP servers: 'Get-DhcpServerInDC' lists authorized servers — capture DHCPOFFER responses with Wireshark to identify unauthorized servers."
+    ],
+    "l2": [
+      "If DHCP DISCOVER frames are not reaching the server: use pktmon on the client to confirm DISCOVER is being sent — 'pktmon filter add -p 68; pktmon start --capture; ipconfig /renew; pktmon stop'",
+      "If client receives DHCPOFFER but no DHCPREQUEST is sent: check for duplicate IP detection logic in the client — 'Get-NetAdapterAdvancedProperty | Where DisplayName -like \"*ARP*\"'",
+      "For Hyper-V VMs: enable MAC spoofing — 'Set-VMNetworkAdapter -VMName <VM> -MacAddressSpoofing On' — if the VM uses NIC teaming or a different MAC than the reservation.",
+      "Reset the TCP/IP stack and Winsock: 'netsh int ip reset C:\\ip_reset.log && netsh winsock reset' — requires reboot.",
+      "Add Windows Firewall inbound rule if blocking DHCP: 'New-NetFirewallRule -DisplayName \"DHCP Client Allow\" -Direction Inbound -Protocol UDP -LocalPort 68 -RemotePort 67 -Action Allow'",
+      "For post-sleep failures: disable NIC power management — 'Set-NetAdapterPowerManagement -Name \"<NIC>\" -WakeOnMagicPacket Disabled -D0PacketCoalescing Disabled' — or via Device Manager > Power Management."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Run 'ipconfig /all > C:\\ipconfig_client.txt'",
+      "Run 'Get-NetIPConfiguration | Out-File C:\\net_ip_config.txt'",
+      "Export DHCP Client Operational log: 'wevtutil epl Microsoft-Windows-Dhcp-Client/Operational C:\\DHCP_Client_Operational.evtx'"
+    ],
+    "l2": [
+      "Capture DHCP client trace: 'netsh trace start capture=yes tracefile=C:\\dhcp_client_full.etl' — reproduce — stop.",
+      "Run 'Get-NetAdapter | Export-Clixml C:\\net_adapters.xml'",
+      "Run 'Get-NetAdapterBinding | Out-File C:\\adapter_bindings.txt'",
+      "Run 'Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Export-Clixml C:\\dhcp_client_events.xml'",
+      "Run 'Get-NetAdapterPowerManagement | Out-File C:\\nic_power_management.txt'"
+    ]
+  },
+  "playbooks": {
+    "no_ip_assigned": {
+      "title": "Client not receiving any IP address",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-Service Dhcp | Select Status,StartType", "expect": "Status: Running" },
+            { "action": "ipconfig /all", "expect": "DHCP Enabled: Yes — IP shows 169.254.x.x (APIPA) or 0.0.0.0" },
+            { "action": "ipconfig /release && ipconfig /renew", "expect": "Watch for error message — note exact text" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Sort TimeCreated -Desc | Select -First 20 | Format-List", "expect": "Look for DHCP NACK, timeout, or no offer received events" },
+            { "action": "arp -a", "expect": "No duplicate IP-to-MAC mappings — if duplicates exist, IP conflict is preventing lease" },
+            { "action": "Try a different physical switchport", "expect": "If IP received on different port, original port has VLAN or 802.1x issue" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Restart-Service Dhcp", "expect": "DHCP Client service restarts cleanly" },
+            { "action": "Restart-NetAdapter -Name '<adapter>' -Confirm:$false", "expect": "NIC resets — forces fresh DHCP DISCOVER" },
+            { "action": "netsh int ip reset C:\\ip_reset.log && netsh winsock reset (if above fails)", "expect": "TCP/IP stack reset — requires reboot" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "ipconfig /all", "expect": "Valid IP from correct scope, DHCP Server field populated, Lease Obtained timestamp present" }
+          ]
+        }
+      ]
+    },
+    "lease_renewal_failing": {
+      "title": "DHCP lease renewal failing — intermittent APIPA after sleep",
+      "severity": "medium",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "ipconfig /all after wake from sleep", "expect": "IP shows 169.254.x.x or previous lease expired — confirms renewal failure" },
+            { "action": "Get-NetAdapterPowerManagement -Name '<NIC>' | Select AllowComputerToTurnOffDevice", "expect": "True means OS is powering off NIC during sleep" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Get-WinEvent -LogName Microsoft-Windows-Dhcp-Client/Operational | Sort TimeCreated -Desc | Select -First 10 | Format-List", "expect": "Events showing renewal attempt failed or no response from server after wake" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Set-NetAdapterPowerManagement -Name '<NIC>' -WakeOnMagicPacket Disabled -D0PacketCoalescing Disabled", "expect": "NIC power management disabled — NIC stays active through sleep/wake" },
+            { "action": "Device Manager > NIC > Power Management > uncheck Allow the computer to turn off this device to save power", "expect": "Alternative GUI method — same effect" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Sleep and wake the machine then ipconfig /all", "expect": "Valid IP retained or renewed immediately after wake — no APIPA" }
+          ]
+        }
+      ]
+    }
+  }
+}

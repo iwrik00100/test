@@ -1,0 +1,14 @@
+{
+  "key": "performance",
+  "label": "Performance",
+  "icon": "⚡",
+  "description": "CPU, Memory, Disk I/O, Network throughput, WPA, PerfMon, ETW tracing",
+  "technologies": [
+    { "key": "cpu", "label": "CPU", "icon": "🧠" },
+    { "key": "memory", "label": "Memory", "icon": "💾" },
+    { "key": "disk_io", "label": "Disk I/O", "icon": "💿" },
+    { "key": "network_perf", "label": "Network Throughput", "icon": "📈" },
+    { "key": "wpa", "label": "WPA / ETW Tracing", "icon": "🔬" },
+    { "key": "perfmon", "label": "PerfMon / PAL", "icon": "📊" }
+  ]
+}

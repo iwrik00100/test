@@ -1,0 +1,199 @@
+{
+  "key": "vpn",
+  "label": "VPN",
+  "icon": "🔒",
+  "domain": "networking",
+  "scoping": {
+    "l1": [
+      "What VPN tunnel type is in use — SSTP (TCP 443), IKEv2 (UDP 500/4500), L2TP/IPsec (UDP 1701/500/4500), or Always On VPN (AOVPN) Device/User Tunnel?",
+      "What Windows version is the VPN client, and what OS is the VPN server (Windows Server RRAS, Azure VPN Gateway, or third-party appliance)?",
+      "Is this a Remote Access VPN (per-user dial-in) or a Site-to-Site (gateway-to-gateway) IPsec tunnel?",
+      "What is the exact error code displayed at connection time? (Error 691, 812, 809, 789, 13801, 868, 800, 619, 721)",
+      "Is the failure at authentication (credentials/certificate rejected), tunnel establishment (IKE/IPsec phase failure), or post-connect (tunnel up but no access to resources)?",
+      "Is this affecting all VPN users or specific users, devices, or locations (e.g., only from behind certain NATs)?",
+      "What authentication method is configured — NPS/RADIUS with PEAP or EAP-TLS, certificate-only (IKEv2), PAP, MS-CHAPv2, or EAP-MS-CHAPv2?",
+      "When did the issue start — server certificate expiry, NPS configuration change, firewall rule change, Windows Update, or new client device/OS?",
+      "Can the VPN client reach the VPN server public IP or FQDN from the internet before attempting to connect? (Test-NetConnection <VPN IP> -Port 443)"
+    ],
+    "l2": [
+      "For IKEv2: what machine certificate and user certificate are in use — are they valid, not expired, issued by the correct CA, and contain the required EKUs (Server Authentication, Client Authentication, IP Security IKE Intermediate)?",
+      "For SSTP: is the VPN server SSL certificate trusted by the client — is the full certificate chain present, the root CA trusted, and the certificate CN/SAN matching the server FQDN/IP?",
+      "For Always On VPN: is this the Device Tunnel (machine cert, connects before logon) or User Tunnel (user cert or MSCHAPv2, connects at user logon)? What is the AOVPN profile source (Intune, SCCM, manual)?",
+      "Is split tunneling configured — what specific routes are pushed to the VPN client via RRAS static routes or AOVPN VPNv2 profile RouteList?",
+      "What NPS Connection Request Policy and Network Policy are matching VPN authentication — what conditions, constraints, and RADIUS attributes are configured?",
+      "Are all required firewall rules and NAT translations in place — IKEv2 (UDP 500, UDP 4500), SSTP (TCP 443), L2TP (UDP 1701, UDP 500, UDP 4500, ESP protocol 50)?",
+      "Is NAT Traversal (NAT-T) enabled on the RRAS server for IKEv2 and L2TP clients connecting from behind NAT?",
+      "What DNS servers and DNS suffixes are pushed to VPN clients post-connection — are they reachable through the VPN tunnel? Are NRPT rules configured for the VPN domain suffix?",
+      "For AOVPN: is the XML VPN profile correctly structured per Microsoft's AOVPN CSP (VPNv2 Profile) specification — are there syntax errors in the profile XML?"
+    ]
+  },
+  "probing": {
+    "l1": [
+      "What is the exact 4-digit or 5-digit Windows VPN error code? (visible in the VPN connection UI or Event Viewer > System — Source: RasClient, Event ID 20227 or 20228)",
+      "Run 'Test-NetConnection -ComputerName <VPN server FQDN> -Port 443' (SSTP) or '-Port 500' (IKEv2) — is the server reachable from the client network?",
+      "On the VPN server: review System event log — filter on source 'RemoteAccess' or 'RasServer' — note Event IDs 20063 (auth failure), 20249 (IPsec negotiation failure).",
+      "Run 'Get-Service RemoteAccess | Select Name,Status,StartType' on the RRAS server.",
+      "On NPS: filter Security event log for Event ID 6273 — note Reason Code and username/device.",
+      "Run 'ipconfig /all' on the client before and after VPN connection — compare DNS servers, default gateway, and new VPN adapter routes.",
+      "Can the same user connect from a different client machine — isolates machine-specific (cert, profile) vs. user-specific (credentials, account) issues?"
+    ],
+    "l2": [
+      "On the RRAS server: enable PPP tracing — 'netsh ras set tracing * enabled' — reproduce — collect C:\\Windows\\tracing\\ppp*.log — disable: 'netsh ras set tracing * disabled'",
+      "Run 'Get-VpnConnection | Select Name,ServerAddress,TunnelType,AuthenticationMethod,EncryptionLevel,SplitTunneling,DnsSuffix' — share all VPN connection profiles.",
+      "For IKEv2: 'netsh ike show certmap' — confirm the machine certificate is mapped to the IKEv2 interface for authentication.",
+      "Run 'Get-VpnServerConfiguration' on the RRAS server — share TunnelType, IPv4AddressRange, IPv4DnsServer, and EncryptionType.",
+      "For AOVPN: export Device Tunnel profile — 'Get-VpnConnection -AllUserConnection | ConvertTo-Json | Out-File C:\\aovpn_device_tunnel.json'",
+      "Run 'netsh ras show authtype > C:\\ras_authtype.txt' and 'netsh ras show protocol > C:\\ras_protocols.txt' on RRAS server.",
+      "Capture IKE trace: 'netsh trace start capture=yes provider=Microsoft-Windows-IKEEXT level=5 tracefile=C:\\ike_trace.etl' — reproduce — stop.",
+      "For SSTP: run 'netsh http show sslcert ipport=0.0.0.0:443' — confirm certhash matches the expected VPN server certificate thumbprint.",
+      "Run 'netsh ipsec dynamic show all > C:\\ipsec_dynamic_state.txt' on both client and server for IPsec/L2TP phase analysis."
+    ]
+  },
+  "troubleshooting": {
+    "l1": [
+      "Error 691 (auth failed): verify username/password, check AD account not locked, and confirm NPS Network Policy matches VPN connection request.",
+      "Error 812 (connection prevented by policy): NPS is rejecting — check Event 6273 Reason Code — verify NPS policy conditions and that the user account has Allow Access.",
+      "Error 809 (IKEv2 network connection could not be established): firewall is blocking UDP 500 or 4500 — verify all NATs and firewalls permit these ports bidirectionally.",
+      "Error 789 (L2TP security negotiation failed): machine certificate missing or wrong for L2TP/IPsec, or IPsec policy mismatch — switch to pre-shared key for testing, then resolve cert issue.",
+      "Error 13801 (IKEv2 authentication credentials unacceptable): machine cert missing, expired, wrong CA, or missing IKE EKU — re-enroll from the correct certificate template.",
+      "Error 868 (name could not be resolved): DNS cannot resolve the VPN server FQDN — test with IP address directly; if that works, DNS is the issue.",
+      "Restart RRAS: 'Restart-Service RemoteAccess' — wait 60-90 seconds for all interfaces to initialize — retest."
+    ],
+    "l2": [
+      "For SSTP certificate binding: rebind the correct cert — 'netsh http add sslcert ipport=0.0.0.0:443 certhash=<thumbprint> appid={ba195980-cd49-458b-9e23-c84ee0adcd75}'",
+      "For IKEv2 machine cert not being offered: verify cert is in LocalMachine\\My store, contains IP Security IKE Intermediate EKU (OID 1.3.6.1.5.5.8.2.2) or Server Authentication EKU, and the CN/SAN matches the RRAS server FQDN.",
+      "For AOVPN Device Tunnel not connecting: confirm client machine is domain-joined, Device Tunnel profile deployed as AllUserConnection, machine cert valid, and the profile NativeProtocol = IKEv2 only.",
+      "For split tunnel route issues: 'Get-VpnConnectionRoute -ConnectionName <name>' — confirm all corporate subnets are in IncludeRoutes list; remove conflicting ExcludeRoutes.",
+      "For DNS not resolving over VPN: confirm correct DNS servers are pushed — 'Get-VpnConnection | Select DnsSuffix,SplitTunneling' — and NRPT rules include the VPN domain suffix: 'Get-DnsClientNrptRule'",
+      "For IKEv2 NAT-T failure (client behind NAT): enable NAT-T on RRAS — 'Set-ItemProperty -Path \"HKLM:\\SYSTEM\\CurrentControlSet\\Services\\RemoteAccess\\Parameters\\Ikev2\" -Name NatTraversalMode -Value 2' — reboot RRAS.",
+      "Analyze IKE ETL trace: look for IKE_AUTH failure notifications: NO_PROPOSAL_CHOSEN (cipher suite mismatch), TS_UNACCEPTABLE (traffic selector mismatch), AUTHENTICATION_FAILED.",
+      "For Always On VPN with Intune: run 'MDMDiagnosticsTool.exe -out C:\\MDMLogs\\' — review MDMDiagReport.xml for VPN profile deployment errors."
+    ]
+  },
+  "datacollection": {
+    "l1": [
+      "Export System event log: 'wevtutil epl System C:\\System_Events_VPN.evtx'",
+      "Run 'Get-VpnConnection | Out-File C:\\vpn_client_connections.txt'",
+      "Run 'ipconfig /all > C:\\ipconfig_before_vpn.txt' (before attempt); 'ipconfig /all > C:\\ipconfig_after_vpn.txt' (after attempt)",
+      "On NPS: export Security event log: 'wevtutil epl Security C:\\NPS_Security_Events.evtx'"
+    ],
+    "l2": [
+      "Enable RRAS PPP tracing: 'netsh ras set tracing * enabled' — reproduce — collect C:\\Windows\\tracing\\ppp*.log — disable: 'netsh ras set tracing * disabled'",
+      "Capture IKE trace: 'netsh trace start capture=yes provider=Microsoft-Windows-IKEEXT level=5 tracefile=C:\\ike_ikeext.etl' — reproduce — stop.",
+      "Run 'Get-VpnServerConfiguration | Out-File C:\\rras_vpn_server_config.txt' on the RRAS server.",
+      "Run 'netsh ras show authtype > C:\\ras_authtype.txt' and 'netsh ras show protocol > C:\\ras_protocol.txt'",
+      "Run 'netsh ipsec dynamic show all > C:\\ipsec_dynamic.txt' on both client and RRAS server.",
+      "Export AOVPN profiles: 'Get-VpnConnection -AllUserConnection | ConvertTo-Json | Out-File C:\\aovpn_device.json'",
+      "Run 'certutil -store My > C:\\rras_server_certs.txt' on the RRAS server.",
+      "Collect NPS verbose trace: 'netsh nps set tracing mode=all' — reproduce — disable — collect C:\\Windows\\tracing\\nps.log"
+    ]
+  },
+  "playbooks": {
+    "error_691_812": {
+      "title": "VPN Error 691 or 812 — authentication rejected",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Note exact error code: 691 = auth failed at PPP level; 812 = NPS policy rejected", "expect": "Error code determines whether issue is credentials (691) or NPS policy (812)" },
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 6273 on NPS | Select -First 3 | Format-List", "expect": "Reason Code and username — confirms NPS is receiving and rejecting the request" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Get-ADUser <username> -Properties Enabled,LockedOut,PasswordExpired | Select *", "expect": "Account enabled, not locked, password not expired" },
+            { "action": "Get-ADUser <username> -Properties msNPAllowDialin | Select msNPAllowDialin", "expect": "Value should be $null (policy-controlled) or $true — if $false, user is always denied" },
+            { "action": "netsh nps show np — check Network Policy conditions and order", "expect": "A policy exists that matches VPN connection type and user group" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Unlock-ADAccount -Identity <user> if locked", "expect": "Account unlocked — retry VPN connection" },
+            { "action": "Set-ADUser <user> -Clear msNPAllowDialin if value is $false", "expect": "Dial-in permission set to policy-controlled — NPS policy now governs access" },
+            { "action": "Fix NPS Network Policy conditions to match VPN request attributes", "expect": "Policy matches — check NAS-Port-Type, Windows Groups, and Tunnel-Type conditions" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Retry VPN connection", "expect": "Connects successfully — no error 691 or 812" },
+            { "action": "Get-WinEvent -LogName Security | Where Id -eq 6272 on NPS | Select -First 3", "expect": "Event 6272 = authentication succeeded" }
+          ]
+        }
+      ]
+    },
+    "error_809_ikev2": {
+      "title": "VPN Error 809 — IKEv2 tunnel cannot be established",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Test-NetConnection <VPN server FQDN> -Port 500", "expect": "Use portqry -n <VPN IP> -e 500 -p udp for accurate UDP test" },
+            { "action": "Test-NetConnection <VPN server FQDN> -Port 4500", "expect": "UDP 4500 required for NAT-T when client is behind NAT" },
+            { "action": "Get-Service RemoteAccess on RRAS server | Select Status", "expect": "Status: Running" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "Get-WinEvent -LogName System | Where ProviderName -eq 'RemoteAccess' | Select -First 5 | Format-List", "expect": "Event 20249 = IPsec negotiation failure — note the specific IKE error" },
+            { "action": "netsh ike show certmap on RRAS server", "expect": "Machine certificate mapped to IKEv2 interface — if missing, IKEv2 has no cert to offer" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Open UDP 500 and UDP 4500 inbound on RRAS server Windows Firewall", "expect": "IKEv2 negotiation traffic now reaches RRAS" },
+            { "action": "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\RemoteAccess\\Parameters\\Ikev2' -Name NatTraversalMode -Value 2", "expect": "NAT-T forced on RRAS — required for clients behind NAT" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Retry VPN connection", "expect": "IKEv2 tunnel establishes — no error 809" },
+            { "action": "Get-RemoteAccessConnectionStatistics | Select ActiveConnections", "expect": "Active connection count incremented" }
+          ]
+        }
+      ]
+    },
+    "aovpn_device_tunnel": {
+      "title": "Always On VPN Device Tunnel not connecting",
+      "severity": "high",
+      "phases": [
+        {
+          "name": "Verify", "icon": "✅",
+          "steps": [
+            { "action": "Get-VpnConnection -AllUserConnection | Select Name,ServerAddress,TunnelType,ConnectionStatus", "expect": "Device Tunnel profile present with TunnelType: IKEv2" },
+            { "action": "Get-WinEvent -LogName System | Where ProviderName -eq 'RasClient' | Select -First 5 | Format-List", "expect": "Event 20227 or 20228 = VPN connection failed — note error code" }
+          ]
+        },
+        {
+          "name": "Isolate", "icon": "🔍",
+          "steps": [
+            { "action": "certutil -store -machine My | findstr 'Subject'", "expect": "Machine cert present — Device Tunnel requires machine cert not user cert" },
+            { "action": "Get-VpnConnection -AllUserConnection | ConvertTo-Json", "expect": "Profile deployed as AllUserConnection — if missing, Intune or SCCM deployment failed" }
+          ]
+        },
+        {
+          "name": "Fix", "icon": "🛠",
+          "steps": [
+            { "action": "Re-enroll machine cert: certlm.msc > Personal > Request New Certificate", "expect": "Valid machine cert with Client Authentication and IP Security IKE Intermediate EKU" },
+            { "action": "MDMDiagnosticsTool.exe -out C:\\MDMLogs\\ if deployed via Intune", "expect": "MDMDiagReport.xml shows VPN profile deployment status and any CSP errors" },
+            { "action": "Restart-Service RasMan", "expect": "Remote Access Connection Manager restarted — Device Tunnel re-attempts connection" }
+          ]
+        },
+        {
+          "name": "Confirm", "icon": "🎯",
+          "steps": [
+            { "action": "Get-VpnConnection -AllUserConnection | Select Name,ConnectionStatus", "expect": "ConnectionStatus: Connected" },
+            { "action": "Test-NetConnection <internal resource> from client before user logon", "expect": "Internal resource reachable via Device Tunnel" }
+          ]
+        }
+      ]
+    }
+  }
+}

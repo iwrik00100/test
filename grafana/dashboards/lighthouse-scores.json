@@ -1,0 +1,167 @@
+{
+  "id": null,
+  "uid": "netops-lighthouse",
+  "title": "NetOps Cockpit — Lighthouse Scores",
+  "description": "Performance, Accessibility, Best Practices and SEO scores over time",
+  "tags": ["netops", "lighthouse", "performance"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1h",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Performance",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 90   }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "testdata" },
+      "targets": [
+        {
+          "refId": "A", "scenarioId": "random_walk",
+          "alias": "Performance", "min": 88, "max": 100, "startValue": 96
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Accessibility",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 90   }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "testdata" },
+      "targets": [
+        {
+          "refId": "A", "scenarioId": "random_walk",
+          "alias": "Accessibility", "min": 90, "max": 100, "startValue": 98
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Best Practices",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 90   }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "testdata" },
+      "targets": [
+        {
+          "refId": "A", "scenarioId": "random_walk",
+          "alias": "Best Practices", "min": 85, "max": 100, "startValue": 95
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "SEO",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 90   }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "testdata" },
+      "targets": [
+        {
+          "refId": "A", "scenarioId": "random_walk",
+          "alias": "SEO", "min": 90, "max": 100, "startValue": 100
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Lighthouse Score Trends (30d)",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 8 },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 8 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Performance"    }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue"   } }] },
+          { "matcher": { "id": "byName", "options": "Accessibility"  }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green"  } }] },
+          { "matcher": { "id": "byName", "options": "Best Practices" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "SEO"            }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }] }
+        ]
+      },
+      "datasource": { "type": "testdata" },
+      "targets": [
+        { "refId": "A", "scenarioId": "random_walk", "alias": "Performance",    "min": 88, "max": 100, "startValue": 96 },
+        { "refId": "B", "scenarioId": "random_walk", "alias": "Accessibility",  "min": 90, "max": 100, "startValue": 98 },
+        { "refId": "C", "scenarioId": "random_walk", "alias": "Best Practices", "min": 85, "max": 100, "startValue": 95 },
+        { "refId": "D", "scenarioId": "random_walk", "alias": "SEO",            "min": 90, "max": 100, "startValue": 100 }
+      ]
+    }
+  ]
+}
