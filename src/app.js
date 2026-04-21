@@ -484,7 +484,7 @@ function copyPlaybook() {
   const pb   = tech?.playbooks?.[state.activePlaybook];
   if (!pb) return;
 
-  let out = `NETOPS COCKPIT — PLAYBOOK\n`;
+  let out = `Nexus — Playbook\n`;
   out += `Technology : ${tech.label}\n`;
   out += `Symptom    : ${pb.title}\n`;
   out += `Severity   : ${pb.severity.toUpperCase()}\n`;
@@ -646,7 +646,7 @@ function _download(content, filename, mime) {
 
 function exportTxt() {
   const { tech, tierLabel, secLabel, sections } = _buildExportData();
-  let txt = `NetOps Cockpit — Incident Command\nTechnology : ${tech.label}\nTier       : ${tierLabel}\nSection    : ${secLabel}\nGenerated  : ${new Date().toLocaleString()}\n${'='.repeat(64)}\n\n`;
+  let txt = `Nexus — Incident Command\nTechnology : ${tech.label}\nTier       : ${tierLabel}\nSection    : ${secLabel}\nGenerated  : ${new Date().toLocaleString()}\n${'='.repeat(64)}\n\n`;
   sections.forEach(({ tier, label, items }) => {
     txt += `[${tier.toUpperCase()} — ${label.toUpperCase()}]\n${'-'.repeat(48)}\n`;
     items.forEach((q, i) => { txt += `${String(i+1).padStart(2,'0')}. ${q}\n`; });
@@ -657,7 +657,7 @@ function exportTxt() {
 
 function exportMd() {
   const { tech, tierLabel, secLabel, sections } = _buildExportData();
-  let md = `# NetOps Cockpit — ${tech.label}\n\n| Field | Value |\n|---|---|\n| Technology | ${tech.label} |\n| Tier | ${tierLabel} |\n| Section | ${secLabel} |\n| Generated | ${new Date().toLocaleString()} |\n\n---\n\n`;
+  let md = `# Nexus — ${tech.label}\n\n| Field | Value |\n|---|---|\n| Technology | ${tech.label} |\n| Tier | ${tierLabel} |\n| Section | ${secLabel} |\n| Generated | ${new Date().toLocaleString()} |\n\n---\n\n`;
   sections.forEach(({ tier, label, items }) => {
     md += `## ${tier.toUpperCase()} — ${label}\n\n`;
     items.forEach((q, i) => { md += `${i+1}. ${q}\n`; });
@@ -673,7 +673,7 @@ function exportHtml() {
       `<li><span class="num">${String(i+1).padStart(2,'0')}</span>${escapeHtml(q)}</li>`).join('');
     return `<div class="section"><div class="sec-head"><span class="tier ${tier}">${tier.toUpperCase()}</span><span class="sec-title">${label}</span></div><ol>${lis}</ol></div>`;
   }).join('');
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NetOps Cockpit — ${escapeHtml(tech.label)}</title><style>body{font-family:'Segoe UI',sans-serif;background:#f4f6fa;color:#1a2535;margin:0;padding:2rem}h1{font-size:1.4rem;margin-bottom:.25rem}p.meta{font-size:.8rem;color:#5a7090;margin-bottom:1.5rem}.section{background:#fff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:1rem;overflow:hidden}.sec-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#eef3fb;border-bottom:1px solid #dde5f0}.tier{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:4px}.tier.l1{background:#dcfce7;color:#16a34a}.tier.l2{background:#fef3c7;color:#d97706}.sec-title{font-weight:700;font-size:.88rem}ol{margin:0;padding:0;list-style:none}li{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #eef3fb;font-size:.85rem;line-height:1.6}li:last-child{border-bottom:none}.num{color:#94a3b8;font-weight:700;min-width:24px;flex-shrink:0}@media print{body{background:#fff}.section{break-inside:avoid}}</style></head><body><h1>${escapeHtml(tech.icon)} ${escapeHtml(tech.label)} — NetOps Cockpit</h1><p class="meta">Tier: ${tierLabel} | Section: ${secLabel} | Generated: ${new Date().toLocaleString()}</p>${rows}</body></html>`;
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Nexus — ${escapeHtml(tech.label)}</title><style>body{font-family:'Segoe UI',sans-serif;background:#f4f6fa;color:#1a2535;margin:0;padding:2rem}h1{font-size:1.4rem;margin-bottom:.25rem}p.meta{font-size:.8rem;color:#5a7090;margin-bottom:1.5rem}.section{background:#fff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:1rem;overflow:hidden}.sec-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#eef3fb;border-bottom:1px solid #dde5f0}.tier{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:4px}.tier.l1{background:#dcfce7;color:#16a34a}.tier.l2{background:#fef3c7;color:#d97706}.sec-title{font-weight:700;font-size:.88rem}ol{margin:0;padding:0;list-style:none}li{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #eef3fb;font-size:.85rem;line-height:1.6}li:last-child{border-bottom:none}.num{color:#94a3b8;font-weight:700;min-width:24px;flex-shrink:0}@media print{body{background:#fff}.section{break-inside:avoid}}</style></head><body><h1>${escapeHtml(tech.icon)} ${escapeHtml(tech.label)} — Nexus</h1><p class="meta">Tier: ${tierLabel} | Section: ${secLabel} | Generated: ${new Date().toLocaleString()}</p>${rows}</body></html>`;
   _download(html, `netops_${state.activeTech}_${state.tier}_${state.qtype}.html`, 'text/html');
 }
 
@@ -1043,7 +1043,7 @@ function _doUpdatePreview() {
     return;
   }
 
-  let out = 'NETOPS COCKPIT — INCIDENT LOG\n';
+  let out = 'Nexus — Incident Log\n';
   out += '─'.repeat(60) + '\n';
   if (sr)         out += `SR / ICM     : ${sr}\n`;
   if (date)       out += `Date         : ${date}\n`;
