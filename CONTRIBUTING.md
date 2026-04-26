@@ -4,15 +4,27 @@ This guide is for **tech leads** adding questions, playbooks, and technologies t
 
 ---
 
+## Branch Strategy
+
+```
+feature/your-work  →  PR  →  ver1.8 (staging)  →  PR  →  main (production / live site)
+```
+
+- All contributor PRs target **`ver1.8`** — never `main` directly
+- `ver1.8` is the staging branch — CI validates here, repo owner reviews here
+- `main` is production — only the repo owner promotes `ver1.8` → `main`
+
+---
+
 ## Quick Start
 
 ```bash
-# 1. Fork and clone the repo
+# 1. Clone the repo
 git clone https://github.com/iwrik00100/nexus.git
 cd nexus
-git checkout ver1.8
 
-# 2. Create a feature branch for your domain
+# 2. Branch off ver1.8 (not main)
+git checkout ver1.8
 git checkout -b feature/directory-services-ad-ds
 
 # 3. Edit your domain JSON file
@@ -26,7 +38,8 @@ git add domains/directory_services/ad_ds.json
 git commit -m "feat(ds): add AD DS questions and playbooks"
 git push origin feature/directory-services-ad-ds
 
-# 6. Open a Pull Request — CI will validate automatically
+# 6. Open a Pull Request — set base branch to ver1.8 (not main)
+# GitHub will default to ver1.8 since it is the repo default branch
 ```
 
 ---
@@ -225,15 +238,19 @@ docker compose up
 
 ## Branch Protection & Governance
 
-The `main` branch is protected. All changes must go through a Pull Request:
+The `main` branch is protected. All contributor changes must go through `ver1.8`:
 
 ```
-feature branch → PR → CI must pass → 1 approval → merge to main → auto-deploy
+feature branch → PR → ver1.8 → CI pass → 1 approval → merge to ver1.8
+                                                              ↓
+                                                    repo owner promotes
+                                                    ver1.8 → main → auto-deploy
 ```
 
 | Rule | Requirement |
 |---|---|
-| Pull request required | No direct pushes to `main` |
+| Pull request required | No direct pushes to `main` or `ver1.8` |
+| Base branch | Always target `ver1.8` — never `main` |
 | Status checks | All CI jobs must pass |
 | Approvals | At least 1 approving review |
 | Force push | Blocked |
