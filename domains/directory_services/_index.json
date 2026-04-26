@@ -11,6 +11,7 @@
     { "key": "azure_ad", "label": "Azure AD / Entra ID", "icon": "☁️" },
     { "key": "kerberos", "label": "Kerberos", "icon": "🎟" },
     { "key": "ldap", "label": "LDAP", "icon": "📒" },
-    { "key": "group_policy", "label": "Group Policy", "icon": "📜" }
+    { "key": "group_policy", "label": "Group Policy", "icon": "📜" },
+    { "key": "sb_sl", "label": "SBSL", "icon": "💻" }
   ]
 }
