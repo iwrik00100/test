@@ -116,7 +116,7 @@ nexus/
 
 ### GitHub Pages (live)
 ```
-https://iwrik00100.github.io/test/src/
+https://iwrik00100.github.io/nexus
 ```
 
 ### Local — Docker (recommended)
